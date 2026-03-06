@@ -1,21 +1,7 @@
-import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, User, MapPin, Mail, Sprout, History, Edit, ChevronRight, Leaf, LogOut } from "lucide-react";
+import { ArrowLeft, User, MapPin, Mail, Sprout, History, Edit, ChevronRight, Leaf } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
-
-type SupportedLanguage = "en" | "hi" | "as";
-type SexCode = "male" | "female" | "other" | "prefer_not_to_say";
-
-type LocalProfile = {
-  name: string;
-  age: string;
-  sex: SexCode | "";
-  language: string;
-};
-
-const STORAGE_KEY = "farm-companion-profile";
 
 const myCrops = [
   { name: "गेहूं", nameEn: "Wheat", status: "growing", statusHi: "बढ़ रहा है", health: "healthy", emoji: "🌾", progress: 65 },
@@ -31,82 +17,6 @@ const scanHistory = [
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
-  const [profile, setProfile] = useState<LocalProfile | null>(null);
-
-  const resolveLanguage = (lang: string | undefined): SupportedLanguage => {
-    if (lang === "en" || lang === "hi" || lang === "as") {
-      return lang;
-    }
-    return "hi";
-  };
-
-  const INFO_LABELS: Record<
-    SupportedLanguage,
-    { age: string; sex: string; language: string; unknownLanguage: string }
-  > = {
-    en: { age: "Age", sex: "Sex", language: "Language", unknownLanguage: "Unknown" },
-    hi: { age: "उम्र", sex: "सेक्स", language: "भाषा", unknownLanguage: "अज्ञात" },
-    as: { age: "বয়স", sex: "লিংগ", language: "ভাষা", unknownLanguage: "অজ্ঞাত" },
-  };
-
-  const LANGUAGE_NAMES: Record<SupportedLanguage, Record<SupportedLanguage, string>> = {
-    en: { en: "English", hi: "हिन्दी", as: "অসমীয়া" },
-    hi: { en: "English", hi: "हिन्दी", as: "অসমীয়া" },
-    as: { en: "English", hi: "হিন্দী", as: "অসমীয়া" },
-  };
-
-  const SEX_VALUE_LABELS: Record<SupportedLanguage, Record<SexCode, string>> = {
-    en: {
-      male: "Male",
-      female: "Female",
-      other: "Other",
-      prefer_not_to_say: "Prefer not to say",
-    },
-    hi: {
-      male: "पुरुष",
-      female: "महिला",
-      other: "अन्य",
-      prefer_not_to_say: "नहीं बताना चाहते",
-    },
-    as: {
-      male: "পুৰুষ",
-      female: "মহিলা",
-      other: "অন্য",
-      prefer_not_to_say: "নক'ব খোজো নহয়",
-    },
-  };
-
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved) as Partial<LocalProfile> & { gender?: string };
-        // Migrate older shape with `gender` only
-        const migrated: LocalProfile = {
-          name: parsed.name ?? "",
-          age: parsed.age ?? "",
-          sex: (parsed.sex ?? parsed.gender ?? "") as SexCode | "",
-          language: parsed.language ?? "",
-        };
-        setProfile(migrated);
-      } catch {
-        setProfile(null);
-        navigate("/profile-setup", { replace: true });
-      }
-    } else {
-      navigate("/profile-setup", { replace: true });
-    }
-  }, [navigate]);
-
-  const currentLanguage = resolveLanguage(profile?.language);
-  const labels = INFO_LABELS[currentLanguage];
-  const languageName =
-    profile?.language && LANGUAGE_NAMES[currentLanguage][resolveLanguage(profile.language)];
-  const sexText =
-    profile?.sex && profile.sex !== ""
-      ? SEX_VALUE_LABELS[currentLanguage][profile.sex as SexCode] ?? profile.sex
-      : "";
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -120,41 +30,20 @@ const Profile = () => {
             <div className="w-16 h-16 bg-primary-foreground/20 rounded-full flex items-center justify-center">
               <User className="w-8 h-8" />
             </div>
-              <div className="flex-1">
-                <h1 className="text-lg font-bold font-hindi">
-                  {profile?.name || user?.displayName || "कृषक मित्र"}
-                </h1>
-                <div className="flex items-center gap-1 text-xs opacity-80">
-                  <MapPin className="w-3 h-3" />
-                  <span className="font-hindi">आपका खेत</span>
-                </div>
-                <div className="flex items-center gap-1 text-xs opacity-80 mt-0.5">
-                  <Mail className="w-3 h-3" />
-                  <span>{user?.email}</span>
-                </div>
-                {profile?.age && (
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    {labels.age}: {profile.age}
-                    {sexText && ` | ${labels.sex}: ${sexText}`}
-                    {profile?.language &&
-                      ` | ${labels.language}: ${languageName ?? labels.unknownLanguage}`}
-                  </p>
-                )}
+            <div className="flex-1">
+              <h1 className="text-lg font-bold font-hindi">रामलाल शर्मा</h1>
+              <div className="flex items-center gap-1 text-xs opacity-80">
+                <MapPin className="w-3 h-3" />
+                <span className="font-hindi">जयपुर, राजस्थान</span>
               </div>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="text-primary-foreground">
-                <Edit className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-primary-foreground"
-                onClick={logout}
-                title="Logout"
-              >
-                <LogOut className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-1 text-xs opacity-80 mt-0.5">
+                <Mail className="w-3 h-3" />
+                <span>ramlal@email.com</span>
+              </div>
             </div>
+            <Button variant="ghost" size="icon" className="text-primary-foreground">
+              <Edit className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </header>

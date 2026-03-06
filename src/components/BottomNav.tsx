@@ -1,19 +1,17 @@
 import { Home, Newspaper, ScanLine, TrendingUp, User } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useLanguage } from "@/hooks/useLanguage";
 
 const navItems = [
-  { to: "/", icon: Home, labels: { hi: "होम", en: "Home", as: "হোম" } },
-  { to: "/news", icon: Newspaper, labels: { hi: "समाचार", en: "News", as: "খবৰ" } },
-  { to: "/scan", icon: ScanLine, labels: { hi: "स्कैन", en: "Scan", as: "স্কেন" }, isCenter: true },
-  { to: "/market", icon: TrendingUp, labels: { hi: "मंडी", en: "Market", as: "বজাৰ" } },
-  { to: "/profile", icon: User, labels: { hi: "प्रोफ़ाइल", en: "Profile", as: "প্ৰ'ফাইল" } },
+  { to: "/", icon: Home, label: "होम", labelEn: "Home" },
+  { to: "/news", icon: Newspaper, label: "समाचार", labelEn: "News" },
+  { to: "/scan", icon: ScanLine, label: "स्कैन", labelEn: "Scan", isCenter: true },
+  { to: "/market", icon: TrendingUp, label: "मंडी", labelEn: "Market" },
+  { to: "/profile", icon: User, label: "प्रोफ़ाइल", labelEn: "Profile" },
 ];
 
 const BottomNav = () => {
   const location = useLocation();
-  const { language } = useLanguage();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-bottom">
@@ -40,7 +38,7 @@ const BottomNav = () => {
                   <Icon className="w-6 h-6" />
                 </div>
                 <span className="text-[10px] mt-1 font-hindi font-medium text-foreground">
-                  {item.labels[language]}
+                  {item.label}
                 </span>
               </NavLink>
             );
@@ -64,7 +62,7 @@ const BottomNav = () => {
                   isActive ? "text-primary" : "text-muted-foreground"
                 )}
               >
-                {item.labels[language]}
+                {item.label}
               </span>
             </NavLink>
           );

@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Search } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Search, Filter } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useLanguage } from "@/hooks/useLanguage";
 
 const mockPrices = [
   { crop: "गेहूं", cropEn: "Wheat", price: 2275, change: 2.3, unit: "क्विंटल", mandi: "दिल्ली" },
@@ -23,9 +22,6 @@ const Market = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [selectedState, setSelectedState] = useState("सभी राज्य");
-  const { language } = useLanguage();
-
-  const isEnglish = language === "en";
 
   const filteredPrices = mockPrices.filter(
     (p) =>
@@ -40,12 +36,8 @@ const Market = () => {
           <button onClick={() => navigate(-1)} className="mb-2">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg font-bold font-hindi">
-            {isEnglish ? "Market prices" : "मंडी भाव"}
-          </h1>
-          <p className="text-xs opacity-80">
-            {isEnglish ? "Live crop prices (India)" : "भारत के ताज़ा फसल भाव"}
-          </p>
+          <h1 className="text-lg font-bold font-hindi">मंडी भाव</h1>
+          <p className="text-xs opacity-80">Live Crop Prices (India)</p>
         </div>
       </header>
 
@@ -55,9 +47,7 @@ const Market = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder={
-                isEnglish ? "Search crop..." : "फसल खोजें"
-              }
+              placeholder="फसल खोजें / Search crop..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 text-sm"
@@ -84,24 +74,16 @@ const Market = () => {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-semibold font-hindi">
-                      {isEnglish ? item.cropEn : item.crop}
-                    </h3>
-                    {!isEnglish && (
-                      <span className="text-xs text-muted-foreground">{item.cropEn}</span>
-                    )}
+                    <h3 className="text-sm font-semibold font-hindi">{item.crop}</h3>
+                    <span className="text-xs text-muted-foreground">{item.cropEn}</span>
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold text-foreground">₹{item.price.toLocaleString()}</div>
-                    <div className="text-[10px] text-muted-foreground font-hindi">
-                      {isEnglish ? `per ${item.unit}` : `प्रति ${item.unit}`}
-                    </div>
+                    <div className="text-[10px] text-muted-foreground font-hindi">प्रति {item.unit}</div>
                   </div>
                 </div>
                 <div className="flex items-center justify-between mt-2">
-                  <span className="text-xs text-muted-foreground font-hindi">
-                    📍 {item.mandi}
-                  </span>
+                  <span className="text-xs text-muted-foreground font-hindi">📍 {item.mandi}</span>
                   <div className={`flex items-center gap-1 text-xs font-semibold ${
                     item.change > 0 ? "text-success" : item.change < 0 ? "text-destructive" : "text-muted-foreground"
                   }`}>
@@ -115,7 +97,8 @@ const Market = () => {
         </div>
 
         <p className="text-center text-xs text-muted-foreground font-hindi py-4">
-          {isEnglish ? "Prices are updated daily" : "भाव प्रतिदिन अपडेट होते हैं"}
+          भाव प्रतिदिन अपडेट होते हैं<br />
+          <span className="text-[10px]">Prices updated daily</span>
         </p>
       </div>
     </div>
