@@ -20,7 +20,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
+      console.log('=== AUTH STATE CHANGED ===');
+      console.log('Firebase user object:', firebaseUser);
+      console.log('User UID:', firebaseUser?.uid);
+      console.log('User email:', firebaseUser?.email);
+      
+      if (firebaseUser) {
+        console.log('✅ User is authenticated');
+        setUser(firebaseUser);
+      } else {
+        console.log('❌ User is not authenticated');
+        setUser(null);
+      }
+      
       setLoading(false);
     });
 
@@ -44,6 +56,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       await signOut(auth);
+      // Clear any local storage data
+      localStorage.removeItem('farm-companion-profile');
+      localStorage.removeItem('farm-companion-language');
+    } catch (error) {
+      console.error('Error signing out:', error);
     } finally {
       setLoading(false);
     }
@@ -58,9 +75,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
+
   return context;
 };
-

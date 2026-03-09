@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KisanSathi Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0fdf4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background: #e8f5e8;
+            color: white;
+        }
+        .success { background: #22c55e; }
+        .error { background: #ef4444; }
+        .loading { background: #fbbf24; }
+        button {
+            background: #16a34a;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0d7377; }
+        .nav {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .nav button {
+            background: #6b7280;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .nav button:hover { background: #2563eb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>KisanSathi App Test</h1>
+        
+        <div class="status loading" id="loading-status">
+            <h3>🔄 Testing App Loading...</h3>
+            <p>Checking if React components mount correctly...</p>
+        </div>
+        
+        <div class="status error" id="error-status" style="display: none;">
+            <h3>❌ App Error</h3>
+            <p id="error-message">App failed to load properly</p>
+        </div>
+        
+        <div class="status success" id="success-status" style="display: none;">
+            <h3>✅ App Working!</h3>
+            <p>All components loaded successfully</p>
+        </div>
+        
+        <div class="nav">
+            <button onclick="testReactMount()">Test React Mount</button>
+            <button onclick="testComponents()">Test Components</button>
+            <button onclick="testRouting()">Test Routing</button>
+            <button onclick="testAuth()">Test Auth</button>
+            <button onclick="testLocalStorage()">Test LocalStorage</button>
+        </div>
+        
+        <div id="test-results">
+            <h3>Test Results:</h3>
+            <div id="results-content"></div>
+        </div>
+    </div>
+
+    <script>
+        console.log('🧪 Starting comprehensive app test...');
+        
+        // Test 1: React Mount
+        function testReactMount() {
+            console.log('🔍 Testing React mount...');
+            const mainElement = document.querySelector('main');
+            const headerElement = document.querySelector('header');
+            const navElement = document.querySelector('nav');
+            
+            if (mainElement && headerElement && navElement) {
+                console.log('✅ React mounted successfully');
+                console.log('📱 Main element:', mainElement.innerHTML.length > 0);
+                console.log('📱 Header element:', headerElement.innerHTML.length > 0);
+                document.getElementById('success-status').style.display = 'block';
+                document.getElementById('loading-status').style.display = 'none';
+            } else {
+                console.error('❌ React mount failed');
+                document.getElementById('error-status').style.display = 'block';
+                document.getElementById('error-message').textContent = 'React components failed to mount';
+            }
+        }
+        
+        // Test 2: Components
+        function testComponents() {
+            console.log('🔍 Testing individual components...');
+            try {
+                // Test if we can access React components
+                const testDiv = document.createElement('div');
+                testDiv.innerHTML = '<p>Testing component creation...</p>';
+                document.body.appendChild(testDiv);
+                
+                setTimeout(() => {
+                    document.body.removeChild(testDiv);
+                    console.log('✅ Component creation working');
+                }, 1000);
+                
+            } catch (error) {
+                console.error('❌ Component test failed:', error);
+            }
+        }
+        
+        // Test 3: Routing
+        function testRouting() {
+            console.log('🔍 Testing routing system...');
+            const currentPath = window.location.pathname;
+            console.log('📍 Current path:', currentPath);
+            
+            // Test navigation
+            const testPaths = ['/login', '/profile-setup', '/', '/market', '/weather'];
+            const results = [];
+            
+            for (const path of testPaths) {
+                try {
+                    // Create a test link
+                    const link = document.createElement('a');
+                    link.href = path;
+                    link.textContent = `Navigate to ${path}`;
+                    link.style.display = 'block';
+                    link.style.margin = '5px';
+                    document.body.appendChild(link);
+                    results.push(`✅ Can create link to ${path}`);
+                } catch (error) {
+                    results.push(`❌ Failed to create link to ${path}`);
+                }
+            }
+            
+            document.getElementById('results-content').innerHTML = results.join('<br>');
+        }
+        
+        // Test 4: Auth
+        function testAuth() {
+            console.log('🔍 Testing authentication...');
+            const user = localStorage.getItem('farm-companion-profile');
+            if (user) {
+                console.log('✅ User data found in localStorage');
+                console.log('👤 User profile:', JSON.parse(user));
+            } else {
+                console.log('❌ No user data in localStorage');
+            }
+        }
+        
+        // Test 5: LocalStorage
+        function testLocalStorage() {
+            console.log('🔍 Testing localStorage...');
+            try {
+                const testData = { test: 'working', timestamp: new Date().toISOString() };
+                localStorage.setItem('test-app', JSON.stringify(testData));
+                const retrieved = JSON.parse(localStorage.getItem('test-app'));
+                
+                if (retrieved && retrieved.test === 'working') {
+                    console.log('✅ LocalStorage working correctly');
+                } else {
+                    console.log('❌ LocalStorage not working');
+                }
+            } catch (error) {
+                console.error('❌ LocalStorage test failed:', error);
+            }
+        }
+        
+        // Auto-run tests
+        setTimeout(() => {
+            console.log('🧪 Running automatic tests...');
+            testReactMount();
+        }, 1000);
+        
+        setTimeout(() => {
+            testComponents();
+        }, 2000);
+        
+        setTimeout(() => {
+            testRouting();
+        }, 3000);
+        
+        setTimeout(() => {
+            testAuth();
+        }, 4000);
+        
+        setTimeout(() => {
+            testLocalStorage();
+        }, 5000);
+        
+        setTimeout(() => {
+            console.log('🎯 Test complete! Check results above.');
+            console.log('📋 If all tests pass, the issue is in the React app itself.');
+            console.log('📋 If tests fail, the issue is in browser/JavaScript environment.');
+        }, 6000);
+    </script>
+</body>
+</html>

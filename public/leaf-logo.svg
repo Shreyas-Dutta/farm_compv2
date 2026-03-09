@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Leaf logo">
+  <defs>
+    <linearGradient id="leafGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#86efac" />
+      <stop offset="100%" stop-color="#15803d" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#f0fdf4" />
+  <path
+    d="M49 14c-16 1-28 9-32 22-3 10 2 18 11 20 10 2 21-3 27-13 5-8 6-18 5-29-3 0-7 0-11 0Z"
+    fill="url(#leafGradient)"
+  />
+  <path
+    d="M18 44c7-8 15-15 25-21"
+    fill="none"
+    stroke="#166534"
+    stroke-linecap="round"
+    stroke-width="3"
+  />
+  <path
+    d="M25 31c3 3 4 7 4 11"
+    fill="none"
+    stroke="#166534"
+    stroke-linecap="round"
+    stroke-width="2.5"
+    opacity="0.75"
+  />
+</svg>
+

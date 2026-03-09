@@ -9,16 +9,15 @@ import Market from "@/pages/Market";
 import Scan from "@/pages/Scan";
 import Weather from "@/pages/Weather";
 import Profile from "@/pages/Profile";
-import ProfileSetup from "@/pages/ProfileSetup";
+import ProfileSetup from "@/pages/ProfileSetup-Fixed";
 import AddCrop from "@/pages/AddCrop";
-import Auth from "@/pages/Auth";
-import { RequireAuth } from "@/components/RequireAuth";
+import RequireAuth from "@/components/RequireAuth";
 import BottomNav from "./components/BottomNav";
 import Login from "./pages/Login";
 import { useAuth } from "./hooks/useAuth";
 
-// Working App component - simplified and reliable
-const App = () => {
+// Simple working App component
+const AppWorking = () => {
   const { user, loading } = useAuth();
 
   // Show loading screen while auth is loading
@@ -38,10 +37,10 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             {/* Public routes */}
-            <Route path="/login" element={<Auth />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/profile-setup" element={<ProfileSetup />} />
             
             {/* Protected routes */}
@@ -49,7 +48,10 @@ const App = () => {
               path="/"
               element={
                 <RequireAuth>
-                  <Index />
+                  <>
+                    <Index />
+                    <BottomNav />
+                  </>
                 </RequireAuth>
               }
             />
@@ -57,7 +59,10 @@ const App = () => {
               path="/profile"
               element={
                 <RequireAuth>
-                  <Profile />
+                  <>
+                    <Profile />
+                    <BottomNav />
+                  </>
                 </RequireAuth>
               }
             />
@@ -65,7 +70,10 @@ const App = () => {
               path="/add-crop"
               element={
                 <RequireAuth>
-                  <AddCrop />
+                  <>
+                    <AddCrop />
+                    <BottomNav />
+                  </>
                 </RequireAuth>
               }
             />
@@ -73,7 +81,10 @@ const App = () => {
               path="/scan"
               element={
                 <RequireAuth>
-                  <Scan />
+                  <>
+                    <Scan />
+                    <BottomNav />
+                  </>
                 </RequireAuth>
               }
             />
@@ -81,7 +92,10 @@ const App = () => {
               path="/weather"
               element={
                 <RequireAuth>
-                  <Weather />
+                  <>
+                    <Weather />
+                    <BottomNav />
+                  </>
                 </RequireAuth>
               }
             />
@@ -89,7 +103,10 @@ const App = () => {
               path="/market"
               element={
                 <RequireAuth>
-                  <Market />
+                  <>
+                    <Market />
+                    <BottomNav />
+                  </>
                 </RequireAuth>
               }
             />
@@ -97,14 +114,13 @@ const App = () => {
               path="/news"
               element={
                 <RequireAuth>
-                  <News />
+                  <>
+                    <News />
+                    <BottomNav />
+                  </>
                 </RequireAuth>
               }
             />
-            
-            {/* Fallback route */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
             
             {/* Fallback route */}
             <Route path="*" element={<Navigate to="/" replace />} />
@@ -115,4 +131,4 @@ const App = () => {
   );
 };
 
-export default App;
+export default AppWorking;

@@ -1,36 +1,348 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Star, Lightbulb, CalendarDays, ArrowLeft } from "lucide-react";
+import { Calendar, ArrowLeft, ExternalLink } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  getPersonalizedFarmingNews,
+  getSoilInsights,
+  type NewsArticle,
+  type NewsSectionKey,
+  type PersonalizedNewsProfile,
+  type PersonalizedNewsResult,
+  type SoilInsights,
+  type SoilMetric,
+} from "@/lib/api";
+import { getUserCrops, getUserProfile } from "@/lib/database";
+import { useAuth } from "@/hooks/useAuth";
+import { useLanguage, type SupportedLanguage } from "@/hooks/useLanguage";
 
-const monthlyHighlights = [
-  { title: "रबी सीजन 2026: गेहूं की नई किस्में", titleEn: "Rabi 2026: New wheat varieties", date: "मार्च 2026", image: "🌾" },
-  { title: "सरसों के भाव में तेजी का अनुमान", titleEn: "Mustard prices expected to rise", date: "मार्च 2026", image: "📈" },
-  { title: "जैविक खेती पर सरकारी सब्सिडी बढ़ी", titleEn: "Govt subsidy increased for organic farming", date: "फ़रवरी 2026", image: "🌿" },
-];
+const PROFILE_STORAGE_KEY = "farm-companion-profile";
+const SECTION_ORDER: NewsSectionKey[] = ["events", "highlights", "stories", "tips"];
 
-const successStories = [
-  { name: "रामलाल जी, जयपुर", story: "ड्रिप सिंचाई अपनाकर पानी की 40% बचत और उपज में 30% वृद्धि", storyEn: "Saved 40% water and increased yield by 30% with drip irrigation", emoji: "👨‍🌾" },
-  { name: "सुनीता देवी, लखनऊ", story: "मशरूम की खेती से सालाना आय ₹5 लाख तक पहुंची", storyEn: "Mushroom farming earned ₹5 lakh annual income", emoji: "👩‍🌾" },
-];
+type StoredProfile = PersonalizedNewsProfile & {
+  coordinates?: {
+    lat?: number;
+    lng?: number;
+  } | null;
+};
+type StoredCrop = {
+  type?: string;
+  name?: string;
+  nameEn?: string;
+  nameAs?: string;
+};
 
-const tips = [
-  { tip: "फसल चक्र अपनाएं — मिट्टी की उर्वरता बनी रहेगी", tipEn: "Practice crop rotation to maintain soil fertility", icon: "🔄" },
-  { tip: "नीम का तेल कीटनाशक के रूप में प्रभावी है", tipEn: "Neem oil is effective as a natural pesticide", icon: "🌿" },
-  { tip: "बीजों को बोने से पहले 12 घंटे भिगोएं", tipEn: "Soak seeds for 12 hours before sowing", icon: "💧" },
-];
+const STRINGS: Record<SupportedLanguage, {
+  title: string;
+  subtitle: string;
+  loading: string;
+  personalizedFor: string;
+  sourceLabel: string;
+  soilTitle: string;
+  soilRecommendations: string;
+  soilSourceLabel: string;
+  empty: string;
+  tabs: {
+    highlights: string;
+    stories: string;
+    tips: string;
+    events: string;
+  };
+  sources: {
+    newsapi: string;
+    fallback: string;
+  };
+  soilSources: {
+    soilgrids: string;
+    fallback: string;
+  };
+}> = {
+  en: {
+    title: "Agriculture News",
+    subtitle: "News, tips, and farming updates personalized for you",
+    loading: "Loading your personalized news...",
+    personalizedFor: "Personalized for",
+    sourceLabel: "Source mode",
+    soilTitle: "Soil advisory for your area",
+    soilRecommendations: "Recommended order",
+    soilSourceLabel: "Soil source",
+    empty: "No articles available right now.",
+    tabs: {
+      highlights: "Monthly",
+      stories: "Success",
+      tips: "Tips",
+      events: "Daily",
+    },
+    sources: {
+      newsapi: "Personalized NewsAPI search",
+      fallback: "Local personalized fallback",
+    },
+    soilSources: {
+      soilgrids: "SoilGrids-based advisory",
+      fallback: "Fallback soil guidance",
+    },
+  },
+  hi: {
+    title: "कृषि समाचार",
+    subtitle: "आपके लिए व्यक्तिगत समाचार, सुझाव और खेती अपडेट",
+    loading: "आपके लिए व्यक्तिगत समाचार लोड हो रहे हैं...",
+    personalizedFor: "व्यक्तिगत समाचार",
+    sourceLabel: "समाचार स्रोत",
+    soilTitle: "आपके क्षेत्र की मिट्टी सलाह",
+    soilRecommendations: "सुझाव का क्रम",
+    soilSourceLabel: "मिट्टी स्रोत",
+    empty: "अभी कोई लेख उपलब्ध नहीं है।",
+    tabs: {
+      highlights: "मासिक",
+      stories: "सफलता",
+      tips: "टिप्स",
+      events: "दैनिक",
+    },
+    sources: {
+      newsapi: "व्यक्तिगत NewsAPI खोज",
+      fallback: "स्थानीय वैकल्पिक समाचार",
+    },
+    soilSources: {
+      soilgrids: "SoilGrids आधारित सलाह",
+      fallback: "वैकल्पिक मिट्टी मार्गदर्शन",
+    },
+  },
+  as: {
+    title: "কৃষি বাতৰি",
+    subtitle: "আপোনাৰ বাবে ব্যক্তিগত বাতৰি, পৰামৰ্শ আৰু খেতিৰ আপডেট",
+    loading: "আপোনাৰ ব্যক্তিগত বাতৰি লোড হৈ আছে...",
+    personalizedFor: "ব্যক্তিগতকৰণ",
+    sourceLabel: "বাতৰিৰ উৎস",
+    soilTitle: "আপোনাৰ স্থানৰ মাটিৰ পৰামৰ্শ",
+    soilRecommendations: "পৰামৰ্শৰ ক্রম",
+    soilSourceLabel: "মাটিৰ উৎস",
+    empty: "এই মুহূৰ্তত কোনো বাতৰি উপলব্ধ নহয়।",
+    tabs: {
+      highlights: "মাহেকীয়া",
+      stories: "সফলতা",
+      tips: "টিপছ",
+      events: "দৈনিক",
+    },
+    sources: {
+      newsapi: "ব্যক্তিগত NewsAPI search",
+      fallback: "স্থানীয় বিকল্প বাতৰি",
+    },
+    soilSources: {
+      soilgrids: "SoilGrids ভিত্তিক পৰামৰ্শ",
+      fallback: "বিকল্প মাটিৰ দিশনিৰ্দেশ",
+    },
+  },
+};
 
-const events = [
-  { name: "कृषि मेला 2026", nameEn: "Krishi Mela 2026", date: "15-17 मार्च", location: "नई दिल्ली", emoji: "🎪" },
-  { name: "जैविक खेती प्रशिक्षण", nameEn: "Organic Farming Training", date: "22 मार्च", location: "जयपुर", emoji: "📚" },
-  { name: "बीज वितरण कार्यक्रम", nameEn: "Seed Distribution Program", date: "1 अप्रैल", location: "लखनऊ", emoji: "🌱" },
-];
+const readStoredProfile = (): StoredProfile | null => {
+  try {
+    const saved = localStorage.getItem(PROFILE_STORAGE_KEY);
+    return saved ? JSON.parse(saved) as StoredProfile : null;
+  } catch {
+    return null;
+  }
+};
+
+const extractCropTopics = (crops: StoredCrop[]) => {
+  return Array.from(
+    new Set(
+      crops
+        .map((crop) => crop?.nameEn || crop?.type || crop?.name || crop?.nameAs || "")
+        .map((value) => String(value).replace(/-/g, " ").trim())
+        .filter(Boolean)
+    )
+  ).slice(0, 6);
+};
+
+const hasCoordinates = (coordinates?: { lat?: number; lng?: number } | null): coordinates is { lat: number; lng: number } => {
+  return Boolean(
+    coordinates &&
+      Number.isFinite(coordinates.lat) &&
+      Number.isFinite(coordinates.lng) &&
+      !(coordinates.lat === 0 && coordinates.lng === 0)
+  );
+};
+
+const formatSoilMetric = (metric: SoilMetric) => {
+  if (!Number.isFinite(metric.value)) {
+    return null;
+  }
+
+  const rounded = Math.round((metric.value as number) * 10) / 10;
+  const value = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  const unit = metric.unit && metric.unit !== "-" ? ` ${metric.unit}` : "";
+  return `${metric.label}: ${value}${unit}`;
+};
+
+const formatPublishedDate = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+};
 
 const News = () => {
-  const [searchParams] = useSearchParams();
-  const defaultTab = searchParams.get("tab") || "highlights";
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+  const { language } = useLanguage();
+  const t = STRINGS[language];
+  const [searchParams] = useSearchParams();
+  const [newsResult, setNewsResult] = useState<PersonalizedNewsResult | null>(null);
+  const [soilInsights, setSoilInsights] = useState<SoilInsights | null>(null);
+  const [loading, setLoading] = useState(true);
+  const activeTab = SECTION_ORDER.includes(searchParams.get("tab") as NewsSectionKey)
+    ? searchParams.get("tab") as NewsSectionKey
+    : "events";
+
+  useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const fetchNews = async () => {
+      const storedProfile = readStoredProfile();
+      let soilCoordinates = hasCoordinates(storedProfile?.coordinates) ? storedProfile.coordinates : undefined;
+      const requestProfile: PersonalizedNewsProfile = {
+        name: storedProfile?.name,
+        age: storedProfile?.age,
+        sex: storedProfile?.sex,
+        language: storedProfile?.language || language,
+        location: storedProfile?.location,
+        crops: [],
+      };
+
+      try {
+        setLoading(true);
+        if (user?.uid) {
+          const [profile, crops] = await Promise.all([
+            getUserProfile(user.uid),
+            getUserCrops(user.uid),
+          ]);
+
+          if (profile) {
+            requestProfile.name = profile.name || requestProfile.name;
+            requestProfile.age = profile.age || requestProfile.age;
+            requestProfile.sex = profile.sex || requestProfile.sex;
+            requestProfile.language = profile.language || requestProfile.language;
+            requestProfile.location = profile.location || requestProfile.location;
+
+            if (hasCoordinates(profile.coordinates)) {
+              soilCoordinates = profile.coordinates;
+            }
+          }
+
+          requestProfile.crops = extractCropTopics(Array.isArray(crops) ? crops : []);
+        }
+
+        const [result, soilResult] = await Promise.all([
+          getPersonalizedFarmingNews(requestProfile),
+          requestProfile.location || soilCoordinates
+            ? getSoilInsights({
+                location: requestProfile.location,
+                coordinates: soilCoordinates,
+                crops: requestProfile.crops,
+              })
+            : Promise.resolve<SoilInsights | null>(null),
+        ]);
+
+        if (isMounted) {
+          setNewsResult(result);
+          setSoilInsights(soilResult);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchNews();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [authLoading, language, user?.uid]);
+
+  const getSectionArticles = (sectionKey: NewsSectionKey) => {
+    return newsResult?.sections.find((section) => section.key === sectionKey);
+  };
+
+  const renderArticleCard = (article: NewsArticle, index: number) => {
+    const isExternalLink = Boolean(article.url && article.url !== "#");
+
+    return (
+      <Card key={`${article.title}-${index}`} className="border border-border">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold leading-5">{article.title}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{article.description}</p>
+            </div>
+            {isExternalLink ? (
+              <a
+                href={article.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary shrink-0"
+                aria-label={article.title}
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            ) : null}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              {formatPublishedDate(article.publishedAt)}
+            </span>
+            <span>{article.source}</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderSection = (sectionKey: NewsSectionKey) => {
+    const section = getSectionArticles(sectionKey);
+
+    return (
+      <TabsContent key={sectionKey} value={sectionKey} className="space-y-3 mt-4">
+        <Card className="border border-border bg-secondary/30">
+          <CardContent className="p-4">
+            <h2 className="text-sm font-semibold">{section?.label || t.tabs[sectionKey]}</h2>
+            <p className="text-xs text-muted-foreground mt-1">{section?.description || t.empty}</p>
+          </CardContent>
+        </Card>
+
+        {section?.articles?.length
+          ? section.articles.map(renderArticleCard)
+          : (
+            <Card className="border border-dashed border-border">
+              <CardContent className="p-4 text-sm text-muted-foreground">{t.empty}</CardContent>
+            </Card>
+          )}
+      </TabsContent>
+    );
+  };
+
+  if (loading || authLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <p className="text-sm text-muted-foreground">{t.loading}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -39,84 +351,69 @@ const News = () => {
           <button onClick={() => navigate(-1)} className="mb-2">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg font-bold font-hindi">कृषि समाचार</h1>
-          <p className="text-xs opacity-80">Agriculture News & Updates</p>
+          <h1 className="text-lg font-bold">{t.title}</h1>
+          <p className="text-xs opacity-80">{t.subtitle}</p>
+          {newsResult ? (
+            <div className="mt-2 text-xs opacity-90 space-y-1">
+              <p>{t.personalizedFor}: {newsResult.personalizationSummary}</p>
+              <p>{t.sourceLabel}: {t.sources[newsResult.source]}</p>
+            </div>
+          ) : null}
         </div>
       </header>
 
       <div className="max-w-lg mx-auto px-4 mt-4">
-        <Tabs defaultValue={defaultTab}>
+        {soilInsights ? (
+          <Card className="border border-border bg-secondary/20 mb-4">
+            <CardContent className="p-4 space-y-3">
+              <div>
+                <h2 className="text-sm font-semibold">{t.soilTitle}</h2>
+                <p className="text-xs text-muted-foreground mt-1">{soilInsights.summary}</p>
+                <p className="text-sm mt-2 leading-6">{soilInsights.advisory}</p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {[
+                  soilInsights.metrics.ph,
+                  soilInsights.metrics.clay,
+                  soilInsights.metrics.sand,
+                  soilInsights.metrics.cec,
+                ]
+                  .map(formatSoilMetric)
+                  .filter(Boolean)
+                  .map((metricText) => (
+                    <span key={metricText} className="rounded-full bg-background px-3 py-1 text-xs text-foreground border border-border">
+                      {metricText}
+                    </span>
+                  ))}
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.soilRecommendations}</p>
+                {soilInsights.recommendations.slice(0, 3).map((recommendation, index) => (
+                  <div key={`${recommendation.title}-${index}`} className="rounded-lg bg-background p-3 border border-border/60">
+                    <p className="text-sm font-medium">{index + 1}. {recommendation.title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{recommendation.description}</p>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                {t.soilSourceLabel}: {t.soilSources[soilInsights.source]}
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <Tabs defaultValue={activeTab}>
           <TabsList className="w-full grid grid-cols-4 bg-muted">
-            <TabsTrigger value="highlights" className="text-xs font-hindi">मासिक</TabsTrigger>
-            <TabsTrigger value="stories" className="text-xs font-hindi">सफलता</TabsTrigger>
-            <TabsTrigger value="tips" className="text-xs font-hindi">सुझाव</TabsTrigger>
-            <TabsTrigger value="events" className="text-xs font-hindi">कार्यक्रम</TabsTrigger>
+            <TabsTrigger value="events" className="text-xs">{t.tabs.events}</TabsTrigger>
+            <TabsTrigger value="highlights" className="text-xs">{t.tabs.highlights}</TabsTrigger>
+            <TabsTrigger value="stories" className="text-xs">{t.tabs.stories}</TabsTrigger>
+            <TabsTrigger value="tips" className="text-xs">{t.tabs.tips}</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="highlights" className="space-y-3 mt-4">
-            {monthlyHighlights.map((item, i) => (
-              <Card key={i} className="border border-border">
-                <CardContent className="p-4 flex items-start gap-3">
-                  <span className="text-3xl">{item.image}</span>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-semibold font-hindi">{item.title}</h3>
-                    <p className="text-xs text-muted-foreground mt-1">{item.titleEn}</p>
-                    <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                      <Calendar className="w-3 h-3" />
-                      <span className="font-hindi">{item.date}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </TabsContent>
-
-          <TabsContent value="stories" className="space-y-3 mt-4">
-            {successStories.map((item, i) => (
-              <Card key={i} className="border border-border bg-secondary/30">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl">{item.emoji}</span>
-                    <span className="text-sm font-semibold font-hindi">{item.name}</span>
-                  </div>
-                  <p className="text-sm font-hindi text-foreground">{item.story}</p>
-                  <p className="text-xs text-muted-foreground mt-1 italic">{item.storyEn}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </TabsContent>
-
-          <TabsContent value="tips" className="space-y-3 mt-4">
-            {tips.map((item, i) => (
-              <Card key={i} className="border border-border">
-                <CardContent className="p-4 flex items-start gap-3">
-                  <span className="text-2xl">{item.icon}</span>
-                  <div>
-                    <p className="text-sm font-hindi text-foreground">{item.tip}</p>
-                    <p className="text-xs text-muted-foreground mt-1 italic">{item.tipEn}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </TabsContent>
-
-          <TabsContent value="events" className="space-y-3 mt-4">
-            {events.map((item, i) => (
-              <Card key={i} className="border border-border">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl">{item.emoji}</span>
-                    <h3 className="text-sm font-semibold font-hindi">{item.name}</h3>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{item.nameEn}</p>
-                  <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                    <span className="font-hindi">📅 {item.date}</span>
-                    <span className="font-hindi">📍 {item.location}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </TabsContent>
+          {SECTION_ORDER.map((sectionKey) => renderSection(sectionKey))}
         </Tabs>
       </div>
     </div>

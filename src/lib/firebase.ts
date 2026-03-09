@@ -2,21 +2,14 @@ import { initializeApp, getApp, getApps } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyA6xOY5gUnJLEffuymwVYYfG6ljazeM_Bc",
+  authDomain: "farmsassists.firebaseapp.com",
+  projectId: "farmsassists",
+  storageBucket: "farmsassists.firebasestorage.app",
+  messagingSenderId: "703283032446",
+  appId: "1:703283032446:web:51691bf8bf380a77b5832f",
+  measurementId: "G-HPJFYJ69YZ"
 };
-
-if (!firebaseConfig.apiKey) {
-  // This helps catch missing env vars early in development
-  // eslint-disable-next-line no-console
-  console.warn(
-    "[Firebase] Missing configuration. Did you forget to add VITE_FIREBASE_* env vars?",
-  );
-}
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
