@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
+  getLocalizedMarketCommodityLabel,
   getMarketPrices,
   getNearbyMarketPlaces,
   hasValidCoordinates,
@@ -208,6 +209,10 @@ const Market = () => {
   const [loadingUserCrops, setLoadingUserCrops] = useState(true);
   const [nearbyMarkets, setNearbyMarkets] = useState<NearbyMarketDiscoveryResult | null>(null);
   const [nearbyLoading, setNearbyLoading] = useState(false);
+
+  const getCommodityDisplayLabel = (commodity?: string | null) => {
+    return getLocalizedMarketCommodityLabel(commodity, language);
+  };
   const hasSavedCoordinates = hasValidCoordinates(userProfile?.coordinates);
 
   useEffect(() => {
@@ -385,16 +390,14 @@ const Market = () => {
           location: userProfile?.location,
           coordinates: hasSavedCoordinates ? userProfile.coordinates : undefined,
           marketData: userCropPrices,
+          language,
         });
 
         if (!isMounted) {
           return;
         }
 
-        setNearbyMarkets({
-          ...nearbyResult,
-          places: nearbyResult.places.filter((place) => Boolean(place.matchedPrice)),
-        });
+        setNearbyMarkets(nearbyResult);
       } catch (error) {
         console.error("Error fetching nearby market places:", error);
         if (isMounted) {
@@ -412,7 +415,7 @@ const Market = () => {
     return () => {
       isMounted = false;
     };
-  }, [hasSavedCoordinates, loading, loadingUserCrops, userCropPrices, userProfile?.coordinates, userProfile?.location]);
+  }, [hasSavedCoordinates, language, loading, loadingUserCrops, userCropPrices, userProfile?.coordinates, userProfile?.location]);
 
   const stateOptions = useMemo(() => {
     const mappedStates = new Map<string, string>();
@@ -580,7 +583,7 @@ const Market = () => {
                       {place.matchedPrice && (
                         <div className="rounded-md bg-muted/70 px-3 py-2 text-xs text-foreground">
                           <span className="font-medium">{t.livePrice}:</span>{" "}
-                          {place.matchedPrice.commodity} ₹{formatPriceValue(place.matchedPrice.price)} / {place.matchedPrice.unit}
+                          {getCommodityDisplayLabel(place.matchedPrice.commodity)} ₹{formatPriceValue(place.matchedPrice.price)} / {place.matchedPrice.unit}
                           <span className="text-muted-foreground"> · {place.matchedPrice.market}</span>
                         </div>
                       )}
@@ -649,7 +652,7 @@ const Market = () => {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-sm font-semibold">{item.commodity}</h3>
+                        <h3 className="text-sm font-semibold">{getCommodityDisplayLabel(item.commodity)}</h3>
                         <span className="text-xs text-muted-foreground">{item.date}</span>
                       </div>
                       <div className="text-right">

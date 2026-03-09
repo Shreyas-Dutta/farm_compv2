@@ -70,6 +70,13 @@ describe("database profile storage fallback", () => {
     expect(getDocMock).not.toHaveBeenCalled();
   });
 
+  it("returns null without attempting Firestore when no local profile exists", async () => {
+    const profile = await getUserProfile("test-user");
+
+    expect(profile).toBeNull();
+    expect(getDocMock).not.toHaveBeenCalled();
+  });
+
   it("stores profile updates locally without making a Firestore write", async () => {
     const success = await updateUserProfile("test-user", { name: "Riki", language: "en" });
 

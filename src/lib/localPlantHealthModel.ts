@@ -207,21 +207,28 @@ const createInputTensor = async (file: File, imageSize: number) => {
   }
 
   if (typeof createImageBitmap === "function") {
-    const bitmap = await createImageBitmap(file);
-
     try {
-      context.drawImage(bitmap, 0, 0, imageSize, imageSize);
-    } finally {
-      bitmap.close?.();
-    }
-  } else {
-    const { image, cleanup } = await loadImageElement(file);
+      const bitmap = await createImageBitmap(file);
 
-    try {
-      context.drawImage(image, 0, 0, imageSize, imageSize);
-    } finally {
-      cleanup();
+      try {
+        context.drawImage(bitmap, 0, 0, imageSize, imageSize);
+        return tf.tidy(() => tf.browser.fromPixels(canvas).toFloat().div(255).expandDims(0));
+      } finally {
+        bitmap.close?.();
+      }
+    } catch {
+      // Some browsers expose createImageBitmap() but fail to decode certain
+      // mobile gallery images with runtime errors like "Failed to load image data".
+      // Fall back to the more compatible HTMLImageElement path below.
     }
+  }
+
+  const { image, cleanup } = await loadImageElement(file);
+
+  try {
+    context.drawImage(image, 0, 0, imageSize, imageSize);
+  } finally {
+    cleanup();
   }
 
   return tf.tidy(() => tf.browser.fromPixels(canvas).toFloat().div(255).expandDims(0));
@@ -319,10 +326,11 @@ export const predictLocalPlantHealth = async (file: File): Promise<LocalPlantHea
     return null;
   }
 
-  const inputTensor = await createInputTensor(file, Math.max(32, Number(metadata.imageSize) || 128));
+  let inputTensor: tf.Tensor | null = null;
   let prediction: tf.Tensor | tf.Tensor[] | null = null;
 
   try {
+    inputTensor = await createInputTensor(file, Math.max(32, Number(metadata.imageSize) || 128));
     prediction = model.predict(inputTensor) as tf.Tensor | tf.Tensor[];
     const outputTensor = Array.isArray(prediction) ? prediction[0] : prediction;
     const values = Array.from(await outputTensor.data()).map((value) => Number(value));
@@ -423,7 +431,7 @@ export const predictLocalPlantHealth = async (file: File): Promise<LocalPlantHea
     console.warn("Local plant health prediction failed:", error);
     return null;
   } finally {
-    inputTensor.dispose();
+    inputTensor?.dispose();
 
     if (Array.isArray(prediction)) {
       prediction.forEach((tensor) => tensor.dispose());

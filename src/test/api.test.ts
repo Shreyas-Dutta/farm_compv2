@@ -184,6 +184,7 @@ describe("api helpers", () => {
     const result = await getNearbyMarketPlaces({
       location: "Jaipur, Rajasthan, India",
       coordinates: { lat: 26.9124, lng: 75.7873 },
+      language: "hi",
       marketData: [
         {
           commodity: "Mustard",
@@ -205,9 +206,13 @@ describe("api helpers", () => {
         "X-Goog-Api-Key": "test-google-key",
       },
     });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+      languageCode: "hi",
+    });
     expect(result.source).toBe("google");
     expect(result.places[0].name).toBe("Muhana Mandi");
     expect(result.places[0].matchedPrice?.commodity).toBe("Mustard");
+    expect(result.places[0].reason).toContain("मौजूदा भाव");
     expect(result.places[0].distanceKm).not.toBeNull();
   });
 
@@ -241,12 +246,16 @@ describe("api helpers", () => {
     const result = await getNearbyMarketPlaces({
       location: "Jaipur, Rajasthan, India",
       coordinates: { lat: 26.9124, lng: 75.7873 },
+      language: "hi",
       marketData: [],
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.source).toBe("google");
-    expect(result.summary).toBe("Google Maps found nearby market places near Jaipur, Rajasthan, India.");
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+      languageCode: "hi",
+    });
+    expect(result.summary).toBe("Google Maps ने Jaipur, Rajasthan, India के पास बाजार स्थान ढूंढे।");
     expect(result.places.map((place) => place.id)).toEqual(["place-1", "place-2"]);
   });
 
@@ -671,6 +680,7 @@ describe("api helpers", () => {
 
     const result = await getPersonalizedFarmingNews({
       location: "Assam, India",
+      language: "hi",
       crops: ["rice", "tea"],
     });
 
@@ -680,6 +690,9 @@ describe("api helpers", () => {
     expect(result.personalizationSummary).toContain("Assam, India");
     expect(result.personalizationSummary).toContain("rice");
     expect(result.sections[0].articles.length).toBeGreaterThan(0);
+    expect(result.sections[0].label).toBe("मासिक समाचार");
+    expect(result.sections[0].articles[0].title).toBe("Assam, India: मासिक खेती दृष्टिकोण");
+    expect(result.sections[0].articles[0].source).toBe("फार्म कंपेनियन");
   });
 
   it("uses deterministic personalized section queries when the news key is configured", async () => {
@@ -751,7 +764,7 @@ describe("api helpers", () => {
 
     const result = await getPersonalizedFarmingNews({
       location: "Assam, India",
-      language: "en",
+      language: "hi",
       crops: ["rice"],
     });
 
@@ -759,7 +772,7 @@ describe("api helpers", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain("q=Assam%2C%20India%20monthly%20agriculture%20farming%20report%20rice%20India");
     expect(String(fetchMock.mock.calls[1][0])).toContain("q=Assam%2C%20India%20farmer%20success%20story%20rice%20agriculture%20India");
     expect(result.source).toBe("newsapi");
-    expect(result.sections[0].label).toBe("Monthly News");
+    expect(result.sections[0].label).toBe("मासिक समाचार");
     expect(result.sections[0].articles[0].title).toBe("Assam rice headline");
     expect(result.sections[3].articles[0].source).toBe("Events News");
   });
@@ -943,6 +956,7 @@ describe("api helpers", () => {
     const result = await getSoilInsights({
       location: "Jaipur, Rajasthan, India",
       coordinates: { lat: 26.9124, lng: 75.7873 },
+      language: "as",
       crops: ["wheat"],
     });
 
@@ -952,9 +966,10 @@ describe("api helpers", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain("lat=26.9124");
     expect(result.source).toBe("soilgrids");
     expect(result.metrics.ph.value).toBe(6.8);
+    expect(result.metrics.clay.label).toBe("কেঁচা মাটি");
     expect(result.metrics.clay.value).toBe(40);
-    expect(result.summary.toLowerCase()).toContain("clay-rich");
-    expect(result.recommendations[0].title).toBe("Improve drainage before heavy irrigation");
+    expect(result.summary).toContain("কেঁচা মাটি অধিক");
+    expect(result.recommendations[0].title).toBe("ভাৰী সেচৰ আগতে নিকাশী উন্নত কৰক");
   });
 
   it("returns fallback soil guidance when SoilGrids is unavailable", async () => {
@@ -968,17 +983,20 @@ describe("api helpers", () => {
     const result = await getSoilInsights({
       location: "Assam, India",
       coordinates: { lat: 26.1445, lng: 91.7362 },
+      language: "hi",
       crops: ["rice"],
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.source).toBe("fallback");
-    expect(result.summary).toContain("Assam, India");
+    expect(result.summary).toContain("अभी Assam, India के लिए SoilGrids पर्याप्त मापी गई मृदा जानकारी नहीं दे सका");
     expect(result.recommendations.length).toBeGreaterThan(0);
     expect(result.recommendedCrops).toHaveLength(2);
     expect(result.recommendedCrops[0].crop).toBe("rice");
     expect(result.recommendedCrops[1].crop).toBe("maize");
     expect(result.recommendedCrops[0].reason).toContain("Assam, India");
+    expect(result.recommendations[0].title).toBe("नमी और जलनिकास की जांच से शुरुआत करें");
+    expect(result.metrics.clay.label).toBe("चिकनी मिट्टी");
     expect(result.metrics.ph.value).toBeNull();
   });
 
@@ -1009,18 +1027,25 @@ describe("api helpers", () => {
   });
 
   it("keeps the SoilGrids failure cooldown across a cache reset that simulates refresh", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-09T00:00:00.000Z"));
+
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 503,
     });
 
     global.fetch = fetchMock as unknown as typeof fetch;
+    const expectedFailureUntil = Date.now() + 30 * 60 * 1000;
 
     const firstResult = await getSoilInsights({
       location: "Assam, India",
       coordinates: { lat: 26.1445, lng: 91.7362 },
       crops: ["rice"],
     });
+
+    expect(window.localStorage.getItem("farm-companion-soilgrids-failure-until")).toBe(String(expectedFailureUntil));
+    expect(window.sessionStorage.getItem("farm-companion-soilgrids-failure-until")).toBeNull();
 
     __resetApiCachesForTests({ includePersistent: false });
 
@@ -1062,6 +1087,7 @@ describe("api helpers", () => {
     const result = await getSoilInsights({
       location: "Guwahati, Assam, India",
       coordinates: { lat: 26.1445, lng: 91.7362 },
+      language: "hi",
       crops: ["rice", "tea"],
     });
 
@@ -1069,6 +1095,7 @@ describe("api helpers", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain("https://rest.isric.org/soilgrids/v2.0/properties/query?");
     expect(result.source).toBe("soilgrids");
     expect(result.summary).toContain("Guwahati, Assam, India");
+    expect(result.summary).toContain("रेतीली");
     expect(result.metrics.ph.value).toBe(5.4);
     expect(result.metrics.sand.value).toBe(68);
     expect(result.recommendedCrops).toHaveLength(2);
@@ -1224,26 +1251,28 @@ describe("api helpers", () => {
     expect(requestUrl.searchParams.get("category")).toContain("earthquakes");
     expect(requestUrl.searchParams.get("category")).toContain("floods");
 
-    expect(result.map((event) => event.title)).toEqual([
+    expect(result.source).toBe("live");
+    expect(result.serviceUnavailable).toBe(false);
+    expect(result.events.map((event) => event.title)).toEqual([
       "Earthquake near Assam",
       "Assam floods",
     ]);
-    expect(result[0]).toMatchObject({
+    expect(result.events[0]).toMatchObject({
       categoryIds: ["earthquakes"],
       categoryLabels: ["Earthquakes"],
       sourceIds: ["USGS"],
       magnitudeLabel: "5.8 Mw",
       date: "2026-03-05T12:30:00.000Z",
     });
-    expect(result[0]?.location).toContain("Guwahati, Assam, India");
-    expect(result[1]).toMatchObject({
+    expect(result.events[0]?.location).toContain("Guwahati, Assam, India");
+    expect(result.events[1]).toMatchObject({
       categoryIds: ["floods"],
       categoryLabels: ["Floods"],
       sourceIds: ["GDACS"],
       magnitudeLabel: "4.2 m",
       date: "2026-02-11T00:00:00.000Z",
     });
-    expect(result[1]?.location).toContain("Guwahati, Assam, India");
+    expect(result.events[1]?.location).toContain("Guwahati, Assam, India");
   });
 
   it("geocodes the location before requesting NASA disaster events when coordinates are missing", async () => {
@@ -1289,9 +1318,143 @@ describe("api helpers", () => {
     const requestUrl = new URL(String(fetchMock.mock.calls[1][0]));
     expect(requestUrl.origin).toBe("https://eonet.gsfc.nasa.gov");
     expect(requestUrl.pathname).toBe("/api/v3/events");
-    expect(result).toHaveLength(1);
-    expect(result[0]?.title).toBe("Flood near Barpeta");
-    expect(result[0]?.location).toContain("Barpeta, Assam, India");
+    expect(result.source).toBe("live");
+    expect(result.serviceUnavailable).toBe(false);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]?.title).toBe("Flood near Barpeta");
+    expect(result.events[0]?.location).toContain("Barpeta, Assam, India");
+  });
+
+  it("retries NASA disaster requests when the service returns a transient 503", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-09T08:00:00.000Z"));
+
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          events: [{
+            id: "storm-1",
+            title: "Storm near Guwahati",
+            categories: [{ id: "severeStorms", title: "Severe Storms" }],
+            sources: [{ id: "GDACS" }],
+            geometry: [{
+              date: "2026-03-08T10:00:00.000Z",
+              type: "Point",
+              coordinates: [91.7362, 26.1445],
+            }],
+          }],
+        }),
+      });
+
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const resultPromise = getDisasterEventsForLocation({
+      location: "Guwahati, Assam, India",
+      coordinates: { lat: 26.1445, lng: 91.7362 },
+    });
+
+    await vi.advanceTimersByTimeAsync(750);
+    const result = await resultPromise;
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.source).toBe("live");
+    expect(result.serviceUnavailable).toBe(false);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]?.title).toBe("Storm near Guwahati");
+  });
+
+  it("returns cached NASA disaster events when a later lookup hits a 503", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-09T08:00:00.000Z"));
+
+    const request = {
+      location: "Guwahati, Assam, India",
+      coordinates: { lat: 26.1445, lng: 91.7362 },
+    };
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        events: [{
+          id: "flood-cache-1",
+          title: "Cached Assam floods",
+          categories: [{ id: "floods", title: "Floods" }],
+          sources: [{ id: "GDACS" }],
+          geometry: [{
+            date: "2026-03-08T10:00:00.000Z",
+            type: "Point",
+            coordinates: [91.7362, 26.1445],
+          }],
+        }],
+      }),
+    }) as unknown as typeof fetch;
+
+    const liveResult = await getDisasterEventsForLocation(request);
+    expect(liveResult.source).toBe("live");
+    expect(liveResult.serviceUnavailable).toBe(false);
+    expect(liveResult.events[0]?.title).toBe("Cached Assam floods");
+
+    __resetApiCachesForTests({ includePersistent: false });
+
+    const outageFetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockResolvedValueOnce({ ok: false, status: 503 });
+    global.fetch = outageFetchMock as unknown as typeof fetch;
+
+    const cachedResultPromise = getDisasterEventsForLocation(request);
+    await vi.advanceTimersByTimeAsync(750);
+    const cachedResult = await cachedResultPromise;
+
+    expect(outageFetchMock).toHaveBeenCalledTimes(2);
+    expect(cachedResult.source).toBe("cache");
+    expect(cachedResult.serviceUnavailable).toBe(true);
+    expect(cachedResult.events.map((event) => event.title)).toEqual(["Cached Assam floods"]);
+    expect(window.localStorage.getItem("farm-companion-eonet-failure-until")).not.toBeNull();
+  });
+
+  it("uses the persisted NASA outage cooldown to avoid repeated live requests", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-09T08:00:00.000Z"));
+
+    const request = {
+      location: "Guwahati, Assam, India",
+      coordinates: { lat: 26.1445, lng: 91.7362 },
+    };
+
+    const outageFetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockResolvedValueOnce({ ok: false, status: 503 });
+    global.fetch = outageFetchMock as unknown as typeof fetch;
+
+    const firstResultPromise = getDisasterEventsForLocation(request);
+    await vi.advanceTimersByTimeAsync(750);
+    const firstResult = await firstResultPromise;
+
+    expect(outageFetchMock).toHaveBeenCalledTimes(2);
+    expect(firstResult).toEqual({
+      events: [],
+      source: "live",
+      serviceUnavailable: true,
+    });
+
+    __resetApiCachesForTests({ includePersistent: false });
+
+    const cooldownFetchMock = vi.fn();
+    global.fetch = cooldownFetchMock as unknown as typeof fetch;
+
+    const secondResult = await getDisasterEventsForLocation(request);
+
+    expect(cooldownFetchMock).not.toHaveBeenCalled();
+    expect(secondResult).toEqual({
+      events: [],
+      source: "live",
+      serviceUnavailable: true,
+    });
   });
 
   it("returns a localized severe weather alert when storm conditions are detected", async () => {

@@ -338,10 +338,18 @@ const Scan = () => {
     setIsAnalyzing(true);
 
     try {
+      const localHealthPredictionTask = predictLocalPlantHealth(selectedFile).catch((error) => {
+        console.warn("Local plant health analysis skipped for this image:", error);
+        return null;
+      });
+      const supportedLocalCropNamesTask = getSupportedLocalPlantHealthCropNames().catch((error) => {
+        console.warn("Supported local plant-health crops unavailable:", error);
+        return [];
+      });
       const [detectionResult, localHealthPrediction, supportedLocalCropNames] = await Promise.all([
         detectCropDisease(selectedFile),
-        predictLocalPlantHealth(selectedFile),
-        getSupportedLocalPlantHealthCropNames(),
+        localHealthPredictionTask,
+        supportedLocalCropNamesTask,
       ]);
       const explicitPlantName = selectedCrop?.nameEn
         || selectedCrop?.name
@@ -395,11 +403,25 @@ const Scan = () => {
         ? buildLimitedDiseaseSupportMessage(getLocalizedText(resultPlantNameHi, resultPlantName), supportedLocalCropNames)
         : undefined;
       const isUnconfirmedDetectionResult = isUnconfirmedDetection(detectionResult);
-      const shouldPersistResult = resolvedHealth.persistable && !isLimitedFallbackWithoutIdentity && !hasCropNameMismatch;
       const currentUserId = user?.uid;
-      const canPersistResult = Boolean(currentUserId) && shouldPersistResult;
-      const isUnconfirmedResult = (!shouldPersistResult && !hasCropNameMismatch)
+      const shouldPersistScanHistory = !isLimitedFallbackWithoutIdentity;
+      const shouldPersistMonitoringResult = resolvedHealth.persistable && !isLimitedFallbackWithoutIdentity && !hasCropNameMismatch;
+      const canPersistScanHistory = Boolean(currentUserId) && shouldPersistScanHistory;
+      const canPersistMonitoringResult = Boolean(currentUserId) && shouldPersistMonitoringResult;
+      const isUnconfirmedResult = (!shouldPersistMonitoringResult && !hasCropNameMismatch)
         || (resolvedHealth.source !== "local_model" && isUnconfirmedDetectionResult);
+      const historyCropName = hasCropNameMismatch
+        ? getLocalizedText(resultPlantNameHi, resultPlantName)
+        : cropNameForHistory;
+      const historyCropNameHi = hasCropNameMismatch
+        ? resultPlantNameHi
+        : selectedCrop?.nameHi || selectedCrop?.name || resultPlantNameHi;
+      const historyCropNameEn = hasCropNameMismatch
+        ? resultPlantName
+        : selectedCrop?.nameEn || selectedCrop?.name || resultPlantName;
+      const historyCropNameAs = hasCropNameMismatch
+        ? resultPlantName
+        : selectedCrop?.nameAs || selectedCrop?.nameEn || selectedCrop?.name || resultPlantName;
 
       const monitoringEntry = {
         date: new Date().toLocaleDateString(LOCALE_BY_LANGUAGE[language]),
@@ -416,13 +438,13 @@ const Scan = () => {
         imageUrl: selectedImage,
       };
 
-      if (canPersistResult && currentUserId) {
+      if (canPersistScanHistory && currentUserId) {
         await addScanResult(currentUserId, {
-          crop: cropNameForHistory,
-          cropHi: selectedCrop?.nameHi || selectedCrop?.name || resultPlantNameHi,
-          cropEn: selectedCrop?.nameEn || selectedCrop?.name || resultPlantName,
-          cropAs: selectedCrop?.nameAs || selectedCrop?.nameEn || selectedCrop?.name || resultPlantName,
-          date: new Date().toLocaleDateString(LOCALE_BY_LANGUAGE[language]),
+          crop: historyCropName,
+          cropHi: historyCropNameHi,
+          cropEn: historyCropNameEn,
+          cropAs: historyCropNameAs,
+          date: monitoringEntry.date,
           result: resolvedHealth.healthStatus,
           confidence: resolvedHealth.confidence,
           healthConfidence: resolvedHealth.confidence,
@@ -436,11 +458,12 @@ const Scan = () => {
           source: detectionResult.source,
           summary: resolvedHealth.description,
           healthSource: resolvedHealth.source,
-          cropId: selectedCrop?.id || null,
+          cropId: hasCropNameMismatch ? null : selectedCrop?.id || null,
+          isUnconfirmed: isUnconfirmedResult,
         });
       }
 
-      if (selectedCrop?.id && canPersistResult && currentUserId) {
+      if (selectedCrop?.id && canPersistMonitoringResult && currentUserId) {
         const existingHistory = Array.isArray(selectedCrop.monitoringHistory) ? selectedCrop.monitoringHistory : [];
         await updateCrop(currentUserId, String(selectedCrop.id), {
           health: resolvedHealth.healthStatus,

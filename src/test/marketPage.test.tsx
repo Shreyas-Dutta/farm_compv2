@@ -8,6 +8,7 @@ const {
   getUserCropsMock,
   getMarketPricesMock,
   getNearbyMarketPlacesMock,
+  languageState,
 } = vi.hoisted(() => ({
   authUser: { uid: "test-user" },
   navigateMock: vi.fn(),
@@ -15,6 +16,7 @@ const {
   getUserCropsMock: vi.fn(),
   getMarketPricesMock: vi.fn(),
   getNearbyMarketPlacesMock: vi.fn(),
+  languageState: { value: "en" as "en" | "hi" | "as" },
 }));
 
 vi.mock("react-router-dom", async () => {
@@ -26,7 +28,7 @@ vi.mock("react-router-dom", async () => {
 });
 
 vi.mock("@/hooks/useLanguage", () => ({
-  useLanguage: () => ({ language: "en" }),
+  useLanguage: () => ({ language: languageState.value }),
 }));
 
 vi.mock("@/hooks/useAuth", () => ({
@@ -51,6 +53,7 @@ import Market from "@/pages/Market";
 
 describe("Market page", () => {
   beforeEach(() => {
+    languageState.value = "en";
     localStorage.clear();
     navigateMock.mockReset();
     getUserProfileMock.mockReset();
@@ -140,7 +143,7 @@ describe("Market page", () => {
     localStorage.clear();
   });
 
-  it("shows only the user's added market crops and keeps nearby suggestions tied to filtered prices", async () => {
+  it("shows only the user's added market crops and keeps all nearby suggestions visible", async () => {
     render(<Market />);
 
     expect(await screen.findByText("My Crop Market")).toBeInTheDocument();
@@ -155,6 +158,7 @@ describe("Market page", () => {
     const nearbyCall = getNearbyMarketPlacesMock.mock.calls.at(-1)?.[0];
     expect(nearbyCall.location).toBe("Jaipur, Rajasthan, India");
     expect(nearbyCall.coordinates).toEqual({ lat: 26.9124, lng: 75.7873 });
+    expect(nearbyCall.language).toBe("en");
     expect(nearbyCall.marketData.map((item: { commodity: string }) => item.commodity)).toEqual(["Rice"]);
 
     expect(screen.getAllByText("Rice").length).toBeGreaterThan(0);
@@ -162,7 +166,7 @@ describe("Market page", () => {
     expect(screen.queryByText("Coconut")).not.toBeInTheDocument();
 
     expect(screen.getByText("Jaipur Agri Market")).toBeInTheDocument();
-    expect(screen.queryByText("Generic Store")).not.toBeInTheDocument();
+    expect(screen.getByText("Generic Store")).toBeInTheDocument();
   });
 
   it("shows an add-crop empty state and skips market fetches when the user has no crops", async () => {
@@ -242,6 +246,7 @@ describe("Market page", () => {
     });
 
     const nearbyCall = getNearbyMarketPlacesMock.mock.calls.at(-1)?.[0];
+    expect(nearbyCall.language).toBe("en");
     expect(nearbyCall.marketData.map((item: { commodity: string }) => item.commodity)).toEqual(["Dragon Fruit"]);
 
     expect(screen.getByText("Current prices for your crops")).toBeInTheDocument();
@@ -271,5 +276,46 @@ describe("Market page", () => {
     expect(screen.getAllByText("No current market prices matched your added crops yet.").length).toBeGreaterThan(0);
     expect(screen.queryByText("Current prices for your crops")).not.toBeInTheDocument();
     expect(getNearbyMarketPlacesMock).not.toHaveBeenCalled();
+  });
+
+  it("shows localized commodity labels for market data when the app language changes", async () => {
+    languageState.value = "hi";
+    getNearbyMarketPlacesMock.mockResolvedValue({
+      source: "fallback",
+      summary: "जयपुर के पास नज़दीकी मंडियां।",
+      places: [
+        {
+          id: "place-hi-1",
+          name: "Jaipur Agri Market",
+          address: "Jaipur, Rajasthan, India",
+          distanceKm: 2.4,
+          mapsUrl: "https://maps.google.com/?q=jaipur-agri-market",
+          reason: "जयपुर में धान के मौजूदा भाव से मिलान हुआ।",
+          matchedPrice: {
+            commodity: "Rice",
+            price: "2800",
+            unit: "Quintal",
+            market: "Jaipur",
+            date: "1/1/2026",
+            trend: "up",
+            state: "Rajasthan",
+          },
+        },
+      ],
+    });
+
+    render(<Market />);
+
+    expect(await screen.findByText("मेरी फसल मंडी")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(getNearbyMarketPlacesMock).toHaveBeenCalled();
+    });
+
+    const nearbyCall = getNearbyMarketPlacesMock.mock.calls.at(-1)?.[0];
+    expect(nearbyCall.language).toBe("hi");
+
+    expect(screen.getAllByText("धान").length).toBeGreaterThan(0);
+    expect(screen.getByText("जयपुर में धान के मौजूदा भाव से मिलान हुआ।")).toBeInTheDocument();
   });
 });

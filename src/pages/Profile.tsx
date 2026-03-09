@@ -37,6 +37,8 @@ const STRINGS: Record<SupportedLanguage, {
   disasterLocationHint: string;
   loadingDisasterHistory: string;
   disasterPastYearSummary: string;
+  showingCachedDisasterHistory: string;
+  disasterHistoryUnavailableForLocation: string;
   noDisasterHistoryForLocation: string;
   noDisasterHistory: string;
   seeMoreDisasterEvents: string;
@@ -91,6 +93,8 @@ const STRINGS: Record<SupportedLanguage, {
     disasterLocationHint: "Enter a location to view disaster events from the past year.",
     loadingDisasterHistory: "Loading disaster events...",
     disasterPastYearSummary: "{count} disaster events from the past year for {location}",
+    showingCachedDisasterHistory: "NASA disaster service is temporarily unavailable. Showing cached results for {location}.",
+    disasterHistoryUnavailableForLocation: "NASA disaster service is temporarily unavailable for {location}. Please try again later.",
     noDisasterHistoryForLocation: "No disaster events found for {location} in the past year",
     noDisasterHistory: "No disaster events found yet",
     seeMoreDisasterEvents: "See more",
@@ -149,6 +153,8 @@ const STRINGS: Record<SupportedLanguage, {
     disasterLocationHint: "पिछले एक साल की आपदा घटनाएँ देखने के लिए स्थान दर्ज करें।",
     loadingDisasterHistory: "आपदा घटनाएँ लोड हो रही हैं...",
     disasterPastYearSummary: "पिछले एक साल में {location} के लिए {count} आपदा घटनाएँ",
+    showingCachedDisasterHistory: "NASA आपदा सेवा अस्थायी रूप से उपलब्ध नहीं है। {location} के लिए कैश किए गए परिणाम दिखाए जा रहे हैं।",
+    disasterHistoryUnavailableForLocation: "{location} के लिए NASA आपदा सेवा अस्थायी रूप से उपलब्ध नहीं है। कृपया बाद में फिर कोशिश करें।",
     noDisasterHistoryForLocation: "पिछले एक साल में {location} के लिए कोई आपदा घटना नहीं मिली",
     noDisasterHistory: "अभी तक कोई आपदा घटना नहीं मिली",
     seeMoreDisasterEvents: "और देखें",
@@ -207,6 +213,8 @@ const STRINGS: Record<SupportedLanguage, {
     disasterLocationHint: "যোৱা এবছৰৰ দুৰ্যোগ ঘটনাবোৰ চাবলৈ অৱস্থান লিখক।",
     loadingDisasterHistory: "দুৰ্যোগ ঘটনাবোৰ লোড হৈ আছে...",
     disasterPastYearSummary: "যোৱা এবছৰত {location}ৰ বাবে {count}টা দুৰ্যোগ ঘটনা",
+    showingCachedDisasterHistory: "NASA দুৰ্যোগ সেৱা সাময়িকভাৱে উপলব্ধ নহয়। {location}ৰ বাবে কেশ কৰা ফলাফল দেখুওৱা হৈছে।",
+    disasterHistoryUnavailableForLocation: "{location}ৰ বাবে NASA দুৰ্যোগ সেৱা সাময়িকভাৱে উপলব্ধ নহয়। অনুগ্ৰহ কৰি পিছত আকৌ চেষ্টা কৰক।",
     noDisasterHistoryForLocation: "যোৱা এবছৰত {location}ৰ বাবে কোনো দুৰ্যোগ ঘটনা পোৱা নগ'ল",
     noDisasterHistory: "এতিয়ালৈ কোনো দুৰ্যোগ ঘটনা পোৱা নগ'ল",
     seeMoreDisasterEvents: "আৰু চাওক",
@@ -273,6 +281,8 @@ const Profile = () => {
   const [profile, setProfile] = useState<any>(null);
   const [myCrops, setMyCrops] = useState<any[]>([]);
   const [disasterEvents, setDisasterEvents] = useState<DisasterEvent[]>([]);
+  const [disasterEventsSource, setDisasterEventsSource] = useState<"live" | "cache">("live");
+  const [disasterServiceUnavailable, setDisasterServiceUnavailable] = useState(false);
   const [disasterEventsLoading, setDisasterEventsLoading] = useState(false);
   const [disasterLocationFilter, setDisasterLocationFilter] = useState("");
   const [hasEditedDisasterLocation, setHasEditedDisasterLocation] = useState(false);
@@ -415,6 +425,10 @@ const Profile = () => {
   };
 
   const isUnconfirmedScan = (scan: any) => {
+    if (scan?.isUnconfirmed) {
+      return true;
+    }
+
     return scan?.source === "fallback"
       && (
         scan?.result === "unknown"
@@ -466,16 +480,26 @@ const Profile = () => {
       .join(" • ");
   };
 
+  const disasterServiceNoticeText = hasDisasterLocationFilter && disasterServiceUnavailable
+    ? disasterEventsSource === "cache" && disasterEvents.length > 0
+      ? t.showingCachedDisasterHistory.replace("{location}", disasterLocationDisplay)
+      : t.disasterHistoryUnavailableForLocation.replace("{location}", disasterLocationDisplay)
+    : "";
+
   const disasterSummaryText = hasDisasterLocationFilter
     ? disasterEventsLoading
       ? t.loadingDisasterHistory
-      : t.disasterPastYearSummary
-          .replace("{count}", String(disasterEvents.length))
-          .replace("{location}", disasterLocationDisplay)
+      : disasterServiceUnavailable && disasterEvents.length === 0
+        ? t.disasterHistoryUnavailableForLocation.replace("{location}", disasterLocationDisplay)
+        : t.disasterPastYearSummary
+            .replace("{count}", String(disasterEvents.length))
+            .replace("{location}", disasterLocationDisplay)
     : t.disasterLocationHint;
 
   const disasterEmptyStateText = hasDisasterLocationFilter
-    ? t.noDisasterHistoryForLocation.replace("{location}", disasterLocationDisplay)
+    ? disasterServiceUnavailable
+      ? t.disasterHistoryUnavailableForLocation.replace("{location}", disasterLocationDisplay)
+      : t.noDisasterHistoryForLocation.replace("{location}", disasterLocationDisplay)
     : t.disasterLocationHint;
   const visibleDisasterEvents = showAllDisasterEvents
     ? disasterEvents
@@ -493,27 +517,35 @@ const Profile = () => {
 
     if (!hasDisasterLocationFilter) {
       setDisasterEvents([]);
+      setDisasterEventsSource("live");
+      setDisasterServiceUnavailable(false);
       setDisasterEventsLoading(false);
       return;
     }
 
     let cancelled = false;
     setDisasterEventsLoading(true);
+    setDisasterServiceUnavailable(false);
 
     const request = {
       location: disasterLocationDisplay,
+      language,
       ...(shouldUseProfileCoordinates ? { coordinates: profile.coordinates } : {}),
     };
 
     void getDisasterEventsForLocation(request)
-      .then((events) => {
+      .then((result) => {
         if (!cancelled) {
-          setDisasterEvents(events);
+          setDisasterEvents(result.events);
+          setDisasterEventsSource(result.source);
+          setDisasterServiceUnavailable(result.serviceUnavailable);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setDisasterEvents([]);
+          setDisasterEventsSource("live");
+          setDisasterServiceUnavailable(true);
         }
       })
       .finally(() => {
@@ -525,12 +557,11 @@ const Profile = () => {
     return () => {
       cancelled = true;
     };
-  }, [disasterLocationDisplay, hasDisasterLocationFilter, profile?.coordinates, shouldUseProfileCoordinates]);
+  }, [disasterLocationDisplay, hasDisasterLocationFilter, language, profile?.coordinates, shouldUseProfileCoordinates]);
 
   useEffect(() => {
     const fetchData = async () => {
       if (!user?.uid) {
-        console.log('No user UID found');
         setLoading(false);
         return;
       }
@@ -538,20 +569,16 @@ const Profile = () => {
       let shouldRedirectToSetup = false;
 
       try {
-        console.log('Fetching data for user:', user.uid);
         setLoading(true);
-        
+
         const userProfile = await getUserProfile(user.uid);
-        console.log('User profile:', userProfile);
         setProfile(userProfile);
         shouldRedirectToSetup = !userProfile;
-        
+
         const crops = await getUserCrops(user.uid);
-        console.log('User crops:', crops);
         setMyCrops(crops || []);
-        
+
         const scans = await getUserScanHistory(user.uid);
-        console.log('User scans:', scans);
         setScanHistory(scans || []);
       } catch (error) {
         console.error('Error fetching profile data:', error);
@@ -559,13 +586,14 @@ const Profile = () => {
         setProfile(null);
         setMyCrops([]);
         setDisasterEvents([]);
+        setDisasterEventsSource("live");
+        setDisasterServiceUnavailable(false);
         setScanHistory([]);
       } finally {
         setLoading(false);
-        
+
         // Redirect to profile setup if no profile exists
         if (shouldRedirectToSetup && user?.uid) {
-          console.log('No profile found, redirecting to setup');
           navigate('/profile-setup');
         }
       }
@@ -574,7 +602,6 @@ const Profile = () => {
     // Add timeout to prevent infinite loading
     const timeout = setTimeout(() => {
       if (loading) {
-        console.log('Loading timeout reached, showing profile anyway');
         setLoading(false);
         setTimeoutReached(true);
       }
@@ -789,6 +816,13 @@ const Profile = () => {
             <p className="text-xs text-muted-foreground">{disasterSummaryText}</p>
           </div>
           <div className="space-y-2">
+            {!disasterEventsLoading && disasterServiceNoticeText && disasterEvents.length > 0 ? (
+              <Card className="border border-warning/30 bg-warning/5">
+                <CardContent className="p-3">
+                  <p className="text-xs text-warning">{disasterServiceNoticeText}</p>
+                </CardContent>
+              </Card>
+            ) : null}
             {disasterEventsLoading ? (
               <Card className="border border-border">
                 <CardContent className="p-4 text-center">

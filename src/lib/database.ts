@@ -1,23 +1,3 @@
-import { 
-  getFirestore, 
-  collection, 
-  doc, 
-  getDoc, 
-  getDocs, 
-  setDoc, 
-  updateDoc, 
-  addDoc, 
-  deleteDoc,
-  query, 
-  where, 
-  orderBy, 
-  limit 
-} from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { app } from './firebase';
-
-const db = getFirestore(app);
-const auth = getAuth(app);
 const PROFILE_STORAGE_KEY = 'farm-companion-profile';
 const getCropsStorageKey = (userId: string) => `farm-companion-crops-${userId}`;
 const getScansStorageKey = (userId: string) => `farm-companion-scans-${userId}`;
@@ -128,47 +108,18 @@ export const filterDisasterHistoryEntries = (entries: any[], locationQuery?: str
   });
 };
 
-// Test Firebase connection
-console.log('🔥 Firebase initialized:', app.name);
-console.log('📊 Firestore DB:', db);
-console.log('🔐 Auth instance:', auth);
-
 // User Profile Services
-export const getUserProfile = async (userId: string) => {
-  const storedProfile = readStoredProfile();
-  if (storedProfile) {
-    return storedProfile;
-  }
-
-  try {
-    const docRef = doc(db, 'users', userId);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      writeStoredProfile(data);
-      return data;
-    }
-
-    return null;
-  } catch (error) {
-    console.warn('Firestore profile read failed, using local profile fallback when available.', error);
-    return readStoredProfile();
-  }
+export const getUserProfile = async (_userId: string) => {
+  return readStoredProfile();
 };
 
-export const updateUserProfile = async (userId: string, data: any) => {
+export const updateUserProfile = async (_userId: string, data: any) => {
   writeStoredProfile(data);
 
-  try {
-    // The app is local-first so client-side blockers cannot prevent profile use.
-    // Firestore sync is skipped here because some environments block
-    // firestore.googleapis.com requests entirely in the browser.
-    return true;
-  } catch (error) {
-    console.warn('Profile saved locally; Firestore sync skipped.', error);
-    return true;
-  }
+  // The app is local-first so client-side blockers cannot prevent profile use.
+  // Firestore sync is intentionally skipped because some environments block
+  // firestore.googleapis.com requests entirely in the browser.
+  return true;
 };
 
 // Crop Services
@@ -287,30 +238,16 @@ export const addDisasterAlertHistory = async (userId: string, alertData: any) =>
 
 // Market Prices Services
 export const getMarketPrices = async () => {
-  try {
-    // This would typically come from a government API or external service
-    // For now, we'll store it in Firestore
-    const pricesRef = collection(db, 'marketPrices');
-    const q = query(pricesRef, orderBy('updatedAt', 'desc'), limit(100));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  } catch (error) {
-    console.error('Error fetching market prices:', error);
-    return [];
-  }
+  // Legacy compatibility helper.
+  // The active app reads market data from src/lib/api.ts instead of Firestore.
+  return [];
 };
 
 // News Services
 export const getNews = async () => {
-  try {
-    const newsRef = collection(db, 'news');
-    const q = query(newsRef, orderBy('publishedAt', 'desc'), limit(20));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  } catch (error) {
-    console.error('Error fetching news:', error);
-    return [];
-  }
+  // Legacy compatibility helper.
+  // The active app reads news from src/lib/api.ts instead of Firestore.
+  return [];
 };
 
-export default { db, auth };
+export default { db: null, auth: null };

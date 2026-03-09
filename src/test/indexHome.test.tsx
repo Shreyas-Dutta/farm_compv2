@@ -111,4 +111,41 @@ describe("Index home page", () => {
     fireEvent.click(screen.getByRole("button", { name: /view history/i }));
     expect(navigateMock).toHaveBeenCalledWith("/profile");
   });
+
+  it("shows a visible fallback soil notice when live soil data is unavailable", async () => {
+    getSoilInsightsMock.mockResolvedValue({
+      location: "Guwahati, Assam, India",
+      source: "fallback",
+      summary: "Fallback soil summary",
+      advisory: "Fallback soil advisory",
+      recommendations: [
+        { title: "Maintain drainage", description: "Keep channels open.", priority: 80 },
+      ],
+      recommendedCrops: [
+        { crop: "rice", reason: "Suitable for current fallback conditions.", priority: 80 },
+        { crop: "maize", reason: "Useful secondary fallback option.", priority: 70 },
+      ],
+      metrics: {
+        ph: { label: "pH", value: null, unit: "", depthLabel: "" },
+        clay: { label: "Clay", value: null, unit: "%", depthLabel: "" },
+        sand: { label: "Sand", value: null, unit: "%", depthLabel: "" },
+        silt: { label: "Silt", value: null, unit: "%", depthLabel: "" },
+        organicCarbon: { label: "Organic carbon", value: null, unit: "", depthLabel: "" },
+        cec: { label: "CEC", value: null, unit: "cmol(c)/kg", depthLabel: "" },
+      },
+    });
+
+    render(<Index />);
+
+    await waitFor(() => {
+      expect(getSoilInsightsMock).toHaveBeenCalledWith({
+        location: "Guwahati, Assam, India",
+        coordinates: { lat: 26.1445, lng: 91.7362 },
+        language: "en",
+      });
+    });
+
+    expect(await screen.findByText("Live soil service is temporarily unavailable. Showing fallback soil guidance.")).toBeInTheDocument();
+    expect(screen.getByText("Advisory source: Fallback soil guidance")).toBeInTheDocument();
+  });
 });

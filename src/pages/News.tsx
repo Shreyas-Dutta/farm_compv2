@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, ArrowLeft, ExternalLink } from "lucide-react";
+import { Calendar, ArrowLeft, ExternalLink, AlertTriangle } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   getPersonalizedFarmingNews,
@@ -40,6 +40,7 @@ const STRINGS: Record<SupportedLanguage, {
   personalizedFor: string;
   sourceLabel: string;
   soilTitle: string;
+    soilFallbackNotice: string;
   soilRecommendations: string;
   soilSourceLabel: string;
   empty: string;
@@ -65,6 +66,7 @@ const STRINGS: Record<SupportedLanguage, {
     personalizedFor: "Personalized for",
     sourceLabel: "Source mode",
     soilTitle: "Soil advisory for your area",
+    soilFallbackNotice: "Live soil service is temporarily unavailable. Showing fallback soil guidance.",
     soilRecommendations: "Recommended order",
     soilSourceLabel: "Soil source",
     empty: "No articles available right now.",
@@ -90,6 +92,7 @@ const STRINGS: Record<SupportedLanguage, {
     personalizedFor: "व्यक्तिगत समाचार",
     sourceLabel: "समाचार स्रोत",
     soilTitle: "आपके क्षेत्र की मिट्टी सलाह",
+    soilFallbackNotice: "लाइव मिट्टी सेवा अभी उपलब्ध नहीं है। फिलहाल वैकल्पिक मिट्टी मार्गदर्शन दिखाया जा रहा है।",
     soilRecommendations: "सुझाव का क्रम",
     soilSourceLabel: "मिट्टी स्रोत",
     empty: "अभी कोई लेख उपलब्ध नहीं है।",
@@ -115,6 +118,7 @@ const STRINGS: Record<SupportedLanguage, {
     personalizedFor: "ব্যক্তিগতকৰণ",
     sourceLabel: "বাতৰিৰ উৎস",
     soilTitle: "আপোনাৰ স্থানৰ মাটিৰ পৰামৰ্শ",
+    soilFallbackNotice: "লাইভ মাটিৰ সেৱা এতিয়া উপলব্ধ নহয়। এতিয়াৰ বাবে বিকল্প মাটিৰ দিশনিৰ্দেশ দেখুওৱা হৈছে।",
     soilRecommendations: "পৰামৰ্শৰ ক্রম",
     soilSourceLabel: "মাটিৰ উৎস",
     empty: "এই মুহূৰ্তত কোনো বাতৰি উপলব্ধ নহয়।",
@@ -133,6 +137,12 @@ const STRINGS: Record<SupportedLanguage, {
       fallback: "বিকল্প মাটিৰ দিশনিৰ্দেশ",
     },
   },
+};
+
+const LOCALE_BY_LANGUAGE: Record<SupportedLanguage, string> = {
+  en: "en-IN",
+  hi: "hi-IN",
+  as: "as-IN",
 };
 
 const readStoredProfile = (): StoredProfile | null => {
@@ -175,13 +185,13 @@ const formatSoilMetric = (metric: SoilMetric) => {
   return `${metric.label}: ${value}${unit}`;
 };
 
-const formatPublishedDate = (value: string) => {
+const formatPublishedDate = (value: string, language: SupportedLanguage) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
   }
 
-  return new Intl.DateTimeFormat("en-IN", {
+  return new Intl.DateTimeFormat(LOCALE_BY_LANGUAGE[language], {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -215,7 +225,7 @@ const News = () => {
         name: storedProfile?.name,
         age: storedProfile?.age,
         sex: storedProfile?.sex,
-        language: storedProfile?.language || language,
+        language,
         location: storedProfile?.location,
         crops: [],
       };
@@ -232,7 +242,6 @@ const News = () => {
             requestProfile.name = profile.name || requestProfile.name;
             requestProfile.age = profile.age || requestProfile.age;
             requestProfile.sex = profile.sex || requestProfile.sex;
-            requestProfile.language = profile.language || requestProfile.language;
             requestProfile.location = profile.location || requestProfile.location;
 
             if (hasCoordinates(profile.coordinates)) {
@@ -250,6 +259,7 @@ const News = () => {
                 location: requestProfile.location,
                 coordinates: soilCoordinates,
                 crops: requestProfile.crops,
+                language,
               })
             : Promise.resolve<SoilInsights | null>(null),
         ]);
@@ -303,7 +313,7 @@ const News = () => {
           <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
               <Calendar className="w-3 h-3" />
-              {formatPublishedDate(article.publishedAt)}
+              {formatPublishedDate(article.publishedAt, language)}
             </span>
             <span>{article.source}</span>
           </div>
@@ -366,6 +376,16 @@ const News = () => {
         {soilInsights ? (
           <Card className="border border-border bg-secondary/20 mb-4">
             <CardContent className="p-4 space-y-3">
+              {soilInsights.source === "fallback" ? (
+                <div
+                  role="status"
+                  className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+                >
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p>{t.soilFallbackNotice}</p>
+                </div>
+              ) : null}
+
               <div>
                 <h2 className="text-sm font-semibold">{t.soilTitle}</h2>
                 <p className="text-xs text-muted-foreground mt-1">{soilInsights.summary}</p>

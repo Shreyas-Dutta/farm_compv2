@@ -153,6 +153,7 @@ const Index = () => {
     tipText: string;
     soilTitle: string;
     soilLoading: string;
+    soilFallbackNotice: string;
     soilRecommendations: string;
     soilSourceLabel: string;
     disasterAlertTitle: string;
@@ -173,6 +174,7 @@ const Index = () => {
       tipText: "Wheat sowing requires 50-60% soil moisture. Timely irrigation can boost yield by 20%.",
       soilTitle: "🌱 Soil advisory",
       soilLoading: "Loading soil data for your location...",
+      soilFallbackNotice: "Live soil service is temporarily unavailable. Showing fallback soil guidance.",
       soilRecommendations: "2 recommended crops",
       soilSourceLabel: "Advisory source",
       disasterAlertTitle: "Disaster alert",
@@ -193,6 +195,7 @@ const Index = () => {
       tipText: "गेहूं की बुवाई के लिए 50-60% मिट्टी की नमी होनी चाहिए। समय पर सिंचाई सिंचाई से 20% तक बढ़ सकती है।",
       soilTitle: "🌱 मिट्टी सलाह",
       soilLoading: "आपके स्थान के लिए मिट्टी डेटा लोड हो रहा है...",
+      soilFallbackNotice: "लाइव मिट्टी सेवा अभी उपलब्ध नहीं है। फिलहाल वैकल्पिक मिट्टी मार्गदर्शन दिखाया जा रहा है।",
       soilRecommendations: "2 सुझाई गई फसलें",
       soilSourceLabel: "सलाह का स्रोत",
       disasterAlertTitle: "आपदा चेतावनी",
@@ -213,6 +216,7 @@ const Index = () => {
       tipText: "গমৰ ৰোপণ কৰোতে মাটিৰ আদ্ৰতা 50-60% নমী হব ললাগা চাইয়। সময় সময় সিংচাইসে 20% পৰ্যন্ত বঢ়াব পাৰি।",
       soilTitle: "🌱 মাটিৰ পৰামৰ্শ",
       soilLoading: "আপোনাৰ স্থানৰ বাবে মাটিৰ তথ্য লোড হৈ আছে...",
+      soilFallbackNotice: "লাইভ মাটিৰ সেৱা এতিয়া উপলব্ধ নহয়। এতিয়াৰ বাবে বিকল্প মাটিৰ দিশনিৰ্দেশ দেখুওৱা হৈছে।",
       soilRecommendations: "2 টা পৰামৰ্শ দিয়া শস্য",
       soilSourceLabel: "পৰামৰ্শৰ উৎস",
       disasterAlertTitle: "দুৰ্যোগ সতৰ্কতা",
@@ -287,6 +291,7 @@ const Index = () => {
         const result = await getSoilInsights({
           location: userProfile?.location,
           coordinates: userCoordinates,
+          language,
         });
 
         if (isMounted) {
@@ -304,7 +309,7 @@ const Index = () => {
     return () => {
       isMounted = false;
     };
-  }, [userProfile?.location, userCoordinates?.lat, userCoordinates?.lng]);
+  }, [language, userProfile?.location, userCoordinates?.lat, userCoordinates?.lng]);
 
   // Get display location
   const displayLocation = userProfile?.location || t.locationPlaceholder;
@@ -386,6 +391,16 @@ const Index = () => {
         ) : soilInsights ? (
           <Card className="border border-border bg-card">
             <CardContent className="p-4 space-y-3">
+              {soilInsights.source === "fallback" ? (
+                <div
+                  role="status"
+                  className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+                >
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p>{t.soilFallbackNotice}</p>
+                </div>
+              ) : null}
+
               <div>
                 <h3 className="text-sm font-semibold">{t.soilTitle}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{soilInsights.summary}</p>

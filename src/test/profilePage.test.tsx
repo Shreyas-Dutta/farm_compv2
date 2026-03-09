@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const createDisasterLookupResult = (events: any[], options?: { source?: "live" | "cache"; serviceUnavailable?: boolean }) => ({
+  events,
+  source: options?.source ?? "live",
+  serviceUnavailable: options?.serviceUnavailable ?? false,
+});
+
 const {
   navigateMock,
   logoutMock,
@@ -8,6 +14,7 @@ const {
   getUserCropsMock,
   getDisasterEventsForLocationMock,
   getUserScanHistoryMock,
+  languageState,
   authUser,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
@@ -16,6 +23,7 @@ const {
   getUserCropsMock: vi.fn(),
   getDisasterEventsForLocationMock: vi.fn(),
   getUserScanHistoryMock: vi.fn(),
+  languageState: { value: "en" as "en" | "hi" | "as" },
   authUser: { uid: "test-user", email: "farmer@example.com" },
 }));
 
@@ -35,7 +43,7 @@ vi.mock("@/hooks/useAuth", () => ({
 }));
 
 vi.mock("@/hooks/useLanguage", () => ({
-  useLanguage: () => ({ language: "en" }),
+  useLanguage: () => ({ language: languageState.value }),
 }));
 
 vi.mock("@/lib/voiceCommands", () => ({
@@ -62,6 +70,7 @@ import Profile from "@/pages/Profile";
 
 describe("Profile page", () => {
   beforeEach(() => {
+    languageState.value = "en";
     navigateMock.mockReset();
     logoutMock.mockReset();
     getUserProfileMock.mockReset();
@@ -79,7 +88,7 @@ describe("Profile page", () => {
     getUserCropsMock.mockResolvedValue([]);
     getDisasterEventsForLocationMock.mockImplementation(async (request?: { location?: string }) => {
       if (request?.location === "Barpeta") {
-        return [{
+        return createDisasterLookupResult([{
           id: "event-2",
           title: "Barpeta storm",
           description: "High winds expected across the district.",
@@ -92,10 +101,10 @@ describe("Profile page", () => {
           categoryLabels: ["Severe Storms"],
           sourceIds: ["GDACS"],
           magnitudeLabel: null,
-        }];
+        }]);
       }
 
-      return [
+      return createDisasterLookupResult([
         {
           id: "event-1",
           title: "Assam floods",
@@ -180,7 +189,7 @@ describe("Profile page", () => {
           sourceIds: ["NASA"],
           magnitudeLabel: null,
         },
-      ];
+      ]);
     });
     getUserScanHistoryMock.mockResolvedValue([
       {
@@ -203,6 +212,7 @@ describe("Profile page", () => {
     await waitFor(() => {
       expect(getDisasterEventsForLocationMock).toHaveBeenCalledWith({
         location: "Guwahati",
+        language: "en",
         coordinates: { lat: 26.1445, lng: 91.7362 },
       });
       expect(getUserScanHistoryMock).toHaveBeenCalledWith("test-user");
@@ -243,11 +253,88 @@ describe("Profile page", () => {
     await waitFor(() => {
       expect(getDisasterEventsForLocationMock).toHaveBeenNthCalledWith(1, {
         location: "Guwahati",
+        language: "en",
         coordinates: { lat: 26.1445, lng: 91.7362 },
       });
       expect(getDisasterEventsForLocationMock).toHaveBeenNthCalledWith(2, {
         location: "Barpeta",
+        language: "en",
       });
     });
+  });
+
+  it("passes the active language to disaster history requests and renders localized API text", async () => {
+    languageState.value = "hi";
+    getDisasterEventsForLocationMock.mockResolvedValue(createDisasterLookupResult([
+      {
+        id: "event-hi-1",
+        title: "असम बाढ़",
+        description: "नदी का पानी पास के खेतों तक पहुंच गया।",
+        link: "https://example.com/assam-floods-hi",
+        date: "2026-03-08T08:00:00.000Z",
+        closedAt: null,
+        location: "गुवाहाटी से 12.4 किमी दूर",
+        distanceKm: 12.4,
+        categoryIds: ["floods"],
+        categoryLabels: ["बाढ़"],
+        sourceIds: ["GDACS"],
+        magnitudeLabel: "4.2 m",
+      },
+    ]));
+
+    render(<Profile />);
+
+    expect(await screen.findByText("आपदा इतिहास")).toBeInTheDocument();
+    expect(await screen.findByText("असम बाढ़")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(getDisasterEventsForLocationMock).toHaveBeenCalledWith({
+        location: "Guwahati",
+        language: "hi",
+        coordinates: { lat: 26.1445, lng: 91.7362 },
+      });
+    });
+
+    expect(screen.getByText("बाढ़ • 4.2 m • स्रोत: GDACS")).toBeInTheDocument();
+    expect(screen.getByText("गुवाहाटी से 12.4 किमी दूर")).toBeInTheDocument();
+  });
+
+  it("shows a cached-data notice when NASA is unavailable but cached disaster history exists", async () => {
+    getDisasterEventsForLocationMock.mockResolvedValue(createDisasterLookupResult([
+      {
+        id: "event-cache-1",
+        title: "Cached Assam floods",
+        description: "Previously loaded flood event.",
+        link: "https://example.com/cached-flood",
+        date: "2026-03-08T08:00:00.000Z",
+        closedAt: null,
+        location: "12.4 km from Guwahati",
+        distanceKm: 12.4,
+        categoryIds: ["floods"],
+        categoryLabels: ["Floods"],
+        sourceIds: ["GDACS"],
+        magnitudeLabel: "4.2 m",
+      },
+    ], {
+      source: "cache",
+      serviceUnavailable: true,
+    }));
+
+    render(<Profile />);
+
+    expect(await screen.findByText("Cached Assam floods")).toBeInTheDocument();
+    expect(screen.getByText("NASA disaster service is temporarily unavailable. Showing cached results for Guwahati.")).toBeInTheDocument();
+  });
+
+  it("shows a service-unavailable message when NASA is down and no cached disaster history exists", async () => {
+    getDisasterEventsForLocationMock.mockResolvedValue(createDisasterLookupResult([], {
+      source: "live",
+      serviceUnavailable: true,
+    }));
+
+    render(<Profile />);
+
+    expect(await screen.findByText("NASA disaster service is temporarily unavailable for Guwahati. Please try again later.")).toBeInTheDocument();
+    expect(screen.queryByText("Assam floods")).not.toBeInTheDocument();
   });
 });

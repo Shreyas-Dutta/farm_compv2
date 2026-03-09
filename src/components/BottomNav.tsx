@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/useAuth";
 import {
+  getMicrophoneAccessErrorMessage,
   getPreferredAudioRecordingMimeType,
   getVoiceRecordingValidationError,
 } from "@/lib/audioRecording";
@@ -216,7 +217,7 @@ const BottomNav = () => {
       }
     } catch (error) {
       console.error("Voice command setup failed:", error);
-      toast.error("Microphone access was denied.");
+      toast.error(getMicrophoneAccessErrorMessage(error));
       resetVoiceFlow();
     }
   };

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "firebase/auth";
-import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import { getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
 
 import { auth, googleProvider } from "@/lib/firebase";
 
@@ -14,40 +14,102 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const REDIRECT_FALLBACK_ERROR_CODES = new Set([
+  "auth/popup-blocked",
+  "auth/operation-not-supported-in-this-environment",
+]);
+
+const getFirebaseAuthErrorCode = (error: unknown) => {
+  if (typeof error === "object" && error && "code" in error) {
+    return String((error as { code?: string }).code || "");
+  }
+
+  return "";
+};
+
+const getGoogleLoginErrorMessage = (error: unknown) => {
+  const code = getFirebaseAuthErrorCode(error);
+
+  if (code === "auth/unauthorized-domain") {
+    return "Login failed because this site domain is not authorized in Firebase Auth.";
+  }
+
+  if (code === "auth/operation-not-allowed") {
+    return "Login failed because Google sign-in is not enabled in Firebase Auth.";
+  }
+
+  return "Login failed. Please check that Google sign-in is enabled in your Firebase project.";
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+    let authStateResolved = false;
+    let redirectResultResolved = false;
+
+    const finishLoadingIfReady = () => {
+      if (isMounted && authStateResolved && redirectResultResolved) {
+        setLoading(false);
+      }
+    };
+
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      console.log('=== AUTH STATE CHANGED ===');
-      console.log('Firebase user object:', firebaseUser);
-      console.log('User UID:', firebaseUser?.uid);
-      console.log('User email:', firebaseUser?.email);
-      
+      if (!isMounted) {
+        return;
+      }
+
       if (firebaseUser) {
-        console.log('✅ User is authenticated');
         setUser(firebaseUser);
       } else {
-        console.log('❌ User is not authenticated');
         setUser(null);
       }
-      
-      setLoading(false);
+
+      authStateResolved = true;
+      finishLoadingIfReady();
     });
 
-    return () => unsubscribe();
+    getRedirectResult(auth)
+      .catch((error) => {
+        console.error("[Firebase Auth] Google redirect login failed", error);
+        alert(getGoogleLoginErrorMessage(error));
+      })
+      .finally(() => {
+        redirectResultResolved = true;
+        finishLoadingIfReady();
+      });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const loginWithGoogle = async () => {
     setLoading(true);
+
     try {
       await signInWithPopup(auth, googleProvider);
+      setLoading(false);
+      return;
     } catch (error) {
-      // eslint-disable-next-line no-console
+      const errorCode = getFirebaseAuthErrorCode(error);
+      if (REDIRECT_FALLBACK_ERROR_CODES.has(errorCode)) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectError) {
+          console.error("[Firebase Auth] Google redirect login failed", redirectError);
+          alert(getGoogleLoginErrorMessage(redirectError));
+          setLoading(false);
+          return;
+        }
+      }
+
       console.error("[Firebase Auth] Google login failed", error);
-      alert("Login failed. Please check that Google sign-in is enabled in your Firebase project.");
-    } finally {
+      alert(getGoogleLoginErrorMessage(error));
       setLoading(false);
     }
   };

@@ -92,7 +92,7 @@ describe("Scan page", () => {
     getSupportedLocalPlantHealthCropNamesMock.mockResolvedValue(["Rice", "Tomato"]);
   });
 
-  it("shows the health status but does not persist monitoring when the identified crop does not match the selected crop", async () => {
+  it("saves mismatched scans to scan history without updating the selected crop monitoring history", async () => {
     const { container } = render(<Scan />);
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
 
@@ -104,7 +104,7 @@ describe("Scan page", () => {
 
     expect(await screen.findByText("Daily monitoring crop")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Analyze" }));
 
     expect(await screen.findByText("Crop name does not match the photo")).toBeInTheDocument();
     expect(screen.getByText(/photo was identified as Tomato/i)).toBeInTheDocument();
@@ -112,8 +112,79 @@ describe("Scan page", () => {
     expect(screen.getByText("Tomato")).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(addScanResultMock).not.toHaveBeenCalled();
+      expect(addScanResultMock).toHaveBeenCalledWith("test-user", expect.objectContaining({
+        crop: "Tomato",
+        cropEn: "Tomato",
+        cropHi: "टमाटर",
+        cropId: null,
+        isUnconfirmed: false,
+      }));
       expect(updateCropMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("saves unconfirmed scans to scan history without updating monitoring history", async () => {
+    detectCropDiseaseMock.mockResolvedValueOnce({
+      plantName: "Rice",
+      plantNameHi: "धान",
+      disease: "Condition not confirmed",
+      diseaseHi: "स्थिति की पुष्टि नहीं हुई",
+      confidence: 24,
+      severity: "unknown",
+      recommendations: ["Take a clearer close-up photo and scan again."],
+      imageUrl: "blob:test-image",
+      timestamp: "2026-03-09T08:00:00.000Z",
+      source: "fallback",
+      summary: "The photo was too unclear for a confirmed diagnosis.",
+    });
+
+    const { container } = render(<Scan />);
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["leaf-image"], "leaf.jpg", { type: "image/jpeg" })],
+      },
+    });
+
+    expect(await screen.findByText("Daily monitoring crop")).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Analyze" }));
+
+    expect(await screen.findByText("This photo was too unclear for a confirmed diagnosis, so it was not added to monitoring history.")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(addScanResultMock).toHaveBeenCalledWith("test-user", expect.objectContaining({
+        crop: "Rice",
+        cropEn: "Rice",
+        cropHi: "धान",
+        cropId: "crop-1",
+        isUnconfirmed: true,
+        source: "fallback",
+      }));
+      expect(updateCropMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("keeps the scan working when the optional local health model rejects the image", async () => {
+    predictLocalPlantHealthMock.mockRejectedValue(new Error("Failed to load image data"));
+
+    const { container } = render(<Scan />);
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["leaf-image"], "leaf.jpg", { type: "image/jpeg" })],
+      },
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Analyze" }));
+
+    expect(await screen.findByText("Crop name does not match the photo")).toBeInTheDocument();
+    expect(screen.getByText("Tomato")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(detectCropDiseaseMock).toHaveBeenCalledTimes(1);
     });
   });
 
