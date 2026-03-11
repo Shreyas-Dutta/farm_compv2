@@ -31,7 +31,10 @@ const getGoogleLoginErrorMessage = (error: unknown) => {
   const code = getFirebaseAuthErrorCode(error);
 
   if (code === "auth/unauthorized-domain") {
-    return "Login failed because this site domain is not authorized in Firebase Auth.";
+    const domain = typeof window !== "undefined" && window.location.hostname
+      ? window.location.hostname
+      : "this domain";
+    return `Login failed because ${domain} is not authorized in Firebase Auth. Add it in Firebase Console -> Authentication -> Settings -> Authorized domains.`;
   }
 
   if (code === "auth/operation-not-allowed") {

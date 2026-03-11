@@ -108,7 +108,9 @@ describe("useAuth", () => {
 
     await waitFor(() => {
       expect(errorSpy).toHaveBeenCalled();
-      expect(alertSpy).toHaveBeenCalledWith("Login failed because this site domain is not authorized in Firebase Auth.");
+      expect(alertSpy).toHaveBeenCalledWith(
+        `Login failed because ${window.location.hostname} is not authorized in Firebase Auth. Add it in Firebase Console -> Authentication -> Settings -> Authorized domains.`,
+      );
     });
   });
 });
