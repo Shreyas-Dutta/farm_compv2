@@ -9,7 +9,7 @@ import Market from "@/pages/Market";
 import Scan from "@/pages/Scan";
 import Weather from "@/pages/Weather";
 import Profile from "@/pages/Profile";
-import ProfileSetup from "@/pages/ProfileSetup-Fixed";
+import ProfileSetup from "@/pages/ProfileSetup";
 import AddCrop from "@/pages/AddCrop";
 import RequireAuth from "@/components/RequireAuth";
 import BottomNav from "./components/BottomNav";

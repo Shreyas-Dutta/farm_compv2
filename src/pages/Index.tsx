@@ -167,8 +167,8 @@ const Index = () => {
     };
   }> = {
     en: {
-      title: "KisanSathi",
-      subtitle: "KisanSathi — Your Smart Farming Companion",
+      title: "AgriNova",
+      subtitle: "AgriNova — Your Smart Farming Companion",
       scanButton: "Check Crop Health",
       tipTitle: "💡 Today's Tip",
       tipText: "Wheat sowing requires 50-60% soil moisture. Timely irrigation can boost yield by 20%.",
@@ -188,8 +188,8 @@ const Index = () => {
       },
     },
     hi: {
-      title: "किसान साथी",
-      subtitle: "KisanSathi — आपका स्मार्ट फार्मिंग साथी",
+      title: "एग्रीनोवा",
+      subtitle: "AgriNova — आपका स्मार्ट फार्मिंग साथी",
       scanButton: "फसल स्वास्थ्य जांचें",
       tipTitle: "💡 आज का सुझाव",
       tipText: "गेहूं की बुवाई के लिए 50-60% मिट्टी की नमी होनी चाहिए। समय पर सिंचाई सिंचाई से 20% तक बढ़ सकती है।",
@@ -209,8 +209,8 @@ const Index = () => {
       },
     },
     as: {
-      title: "কিষাণ সঙ্গী",
-      subtitle: "KisanSathi — আপোনাৰ স্মার্ট ফাৰ্মিংগ সঙ্গী",
+      title: "এগ্রিনোভা",
+      subtitle: "AgriNova — আপোনাৰ স্মার্ট ফাৰ্মিংগ সঙ্গী",
       scanButton: "শস্য স্বাস্থ্য পৰীক্ষা কৰক",
       tipTitle: "💡 আজৰ পৰাম",
       tipText: "গমৰ ৰোপণ কৰোতে মাটিৰ আদ্ৰতা 50-60% নমী হব ললাগা চাইয়। সময় সময় সিংচাইসে 20% পৰ্যন্ত বঢ়াব পাৰি।",
